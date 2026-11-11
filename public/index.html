@@ -112,7 +112,7 @@ async macros(m){const ms=await api('macros');
  <p>Fill only the parts you need. Steps run in this order: fields → assign → note → follow-up task → message → close.</p>
  <div class="row"><div><label>Macro name</label><input id="mn" placeholder="e.g. Not interested - close"></div></div>
  <label>Fields to update (one per line, <code>ApiName=Value</code>, e.g. <code>Dept_Name=All Conferences</code>)</label><textarea id="mf" style="min-height:60px"></textarea>
- <div class="row"><div><label>Assign task to (Zoho user name)</label><input id="ma"></div><div><label>Note to add</label><input id="mt" placeholder="supports {{name}} {{subject}} {{dept}}"></div></div>
+ <div class="row"><div><label>Assign task to (staff name, written to Assign_to)</label><input id="ma"></div><div><label>Note to add</label><input id="mt" placeholder="supports {{name}} {{subject}} {{dept}}"></div></div>
  <div class="row"><div><label>Follow-up task subject</label><input id="mfs"></div><div><label>Due in (days)</label><input id="mfd" type="number" value="2"></div></div>
  <div class="row"><div><label>Send message</label><select id="mc"><option value="">— none —</option><option value="email">Email</option><option value="letter">Letter (PDF)</option><option value="whatsapp">WhatsApp</option></select></div><div><label>Message subject</label><input id="ms"></div></div>
  <textarea id="mb" placeholder="Message text, e.g. Dear {{name}}, ..."></textarea>
@@ -165,20 +165,23 @@ async pending(m){const p=await api('pending');
 async assign(m){const [emps,rules,st]=await Promise.all([api('employees'),api('assign/rules'),api('assign/settings')]);
  const en=Object.fromEntries(emps.map(e=>[e.id,e.name]));const can=me.role!=='executive';
  m.insertAdjacentHTML('beforeend',`<div class="card"><h3>1. Settings</h3>
- <div class="row"><div><label>“Unassigned” owner name in Zoho (tasks owned by this name are the ones the portal may assign)</label><input id="sdo" value="${esc(st.default_owner)}" placeholder="e.g. Edwin Incorporation"></div>
- <div><label>Auto-assign matched tasks</label><select id="sau"><option value="0" ${st.assign_auto?'':'selected'}>Off — I press the button</option><option value="1" ${st.assign_auto?'selected':''}>On — automatically</option></select></div>
+ <div class="row"><div><label>Auto-assign matched tasks</label><select id="sau"><option value="0" ${st.assign_auto?'':'selected'}>Off — I press the button</option><option value="1" ${st.assign_auto?'selected':''}>On — automatically</option></select></div>
  <div><label>Check every (minutes)</label><input id="sam" type="number" value="${st.assign_minutes}"></div><button class="b" id="ssv">Save</button></div>
- <p><small>Tasks owned by anyone else are treated as manually assigned and are never changed. Only tasks of an <b>Inactive</b> employee are offered for reassignment, and only with your click.</small></p></div>
- <div class="card"><h3>2. Employees</h3><div class="row"><div><label>Add name (must match the Zoho user)</label><input id="en"></div><button class="b" id="ead">Add</button><button class="b l" id="esy">Sync from Zoho</button></div>
- <table>${emps.map(e=>`<tr><td>${esc(e.name)}</td><td><span class="tag ${e.active?'ok':'bad'}">${e.active?'Active':'Inactive'}</span></td><td><small>${e.zoho_user_id?'linked':'not linked — press Sync'}</small></td>
- <td>${can?`<button class="b l" data-tg="${e.id}">${e.active?'Make inactive':'Make active'}</button> <button class="b r" data-de="${e.id}">Remove</button>`:''}</td></tr>`).join('')||'<tr><td>No employees yet — press “Sync from Zoho”.</td></tr>'}</table></div>
+ <p><small>The portal writes the staff name into the task's <b>Assign_to</b> field; the group (Dept_Name) is never changed. Only tasks whose Assign_to is <b>empty</b> are assigned. Any task that already has a name is treated as manually assigned and left alone. Only tasks of an <b>Inactive</b> employee are offered for reassignment, and only with your click.</small></p></div>
+ <div class="card"><h3>2. Employees</h3><div class="row"><div><label>Add name (as you type it in Assign_to)</label><input id="en"></div><button class="b" id="ead">Add</button><button class="b l" id="eim">Import names from tasks</button></div><div id="imp"></div>
+ <table>${emps.map(e=>`<tr><td>${esc(e.name)}</td><td><span class="tag ${e.active?'ok':'bad'}">${e.active?'Active':'Inactive'}</span></td><td><input data-al="${e.id}" value="${esc(e.aliases||'')}" placeholder="other spellings, comma separated" ${can?'':'disabled'}></td>
+ <td>${can?`<button class="b l" data-tg="${e.id}">${e.active?'Make inactive':'Make active'}</button> <button class="b r" data-de="${e.id}">Remove</button>`:''}</td></tr>`).join('')||'<tr><td>No employees yet — press “Import names from tasks”.</td></tr>'}</table></div>
  <div class="card"><h3>3. Assignment rules</h3><div class="row"><div><label>Rule name</label><input id="rn"></div><div><label>Match in</label><select id="rf"><option value="Subject">Task subject</option><option value="Dept_Name">Group (Dept_Name)</option></select></div><div><label>Match text</label><input id="rm"></div></div>
  <label>Assign to (tasks go to whoever of these active people has the fewest open tasks)</label><div class="row">${emps.map(e=>`<label style="display:inline-flex;gap:4px;align-items:center;flex:0"><input type="checkbox" class="re" value="${e.id}" style="width:auto"> ${esc(e.name)}${e.active?'':' (inactive)'}</label>`).join('')}</div>
  <button class="b" id="rsv">Add rule</button><table style="margin-top:10px">${rules.map(r=>`<tr><td>${esc(r.name)}</td><td>${esc(r.match_field)} contains “${esc(r.match_value)}”</td><td>${r.employee_ids.map(i=>esc(en[i]||'?')).join(', ')}</td><td>${can?`<button class="b r" data-dr="${r.id}">Delete</button>`:''}</td></tr>`).join('')}</table></div>
  <div class="card"><h3>4. What needs assigning now</h3><button class="b" id="pl">Check tasks</button><div id="plan"></div></div>`);
- $('#ssv').onclick=async()=>{try{await api('assign/settings',{body:{default_owner:$('#sdo').value,assign_auto:$('#sau').value==='1',assign_minutes:+$('#sam').value}});say('Saved');}catch(e){say(e.message,true)}};
+ $('#ssv').onclick=async()=>{try{await api('assign/settings',{body:{assign_auto:$('#sau').value==='1',assign_minutes:+$('#sam').value}});say('Saved');}catch(e){say(e.message,true)}};
  $('#ead').onclick=async()=>{try{await api('employees',{body:{name:$('#en').value}});render();}catch(e){say(e.message,true)}};
- $('#esy').onclick=async()=>{try{const r=await api('employees/sync',{method:'POST',body:{}});say(`Zoho users: ${r.total}, newly added: ${r.added}`);}catch(e){say(e.message,true)}};
+ $('#eim').onclick=async()=>{try{const l=(await api('employees/from-tasks')).filter(x=>!x.known);const box=$('#imp');
+  if(!l.length){box.innerHTML='<p><small>All names found in Assign_to are already in the roster.</small></p>';return;}
+  box.innerHTML='<p><small>Names found in Assign_to of your tasks (spellings merged by first name). Untick anyone who should not be added.</small></p>'+l.map((x,i)=>`<label style="display:block"><input type="checkbox" class="ik" value="${i}" checked style="width:auto"> <b>${esc(x.name)}</b> <small>${x.count} task(s)${x.aliases.length?' · also: '+esc(x.aliases.join(', ')):''}</small></label>`).join('')+'<button class="b g" id="iok">Add selected</button>';
+  $('#iok').onclick=async()=>{const sel=[...box.querySelectorAll('.ik:checked')].map(c=>l[+c.value]);const r=await api('employees/import',{body:{names:sel}});say(`Added ${r.added}`);render();};}catch(e){say(e.message,true)}};
+ m.querySelectorAll('[data-al]').forEach(i=>i.onchange=async()=>{try{await api('employees/'+i.dataset.al+'/aliases',{method:'PUT',body:{aliases:i.value}});say('Saved');}catch(e){say(e.message,true)}});
  m.querySelectorAll('[data-tg]').forEach(b=>b.onclick=async()=>{await api(`employees/${b.dataset.tg}/toggle`,{method:'POST',body:{}});render();});
  m.querySelectorAll('[data-de]').forEach(b=>b.onclick=async()=>{if(confirm('Remove from roster?')){await api('employees/'+b.dataset.de,{method:'DELETE'});render();}});
  m.querySelectorAll('[data-dr]').forEach(b=>b.onclick=async()=>{if(confirm('Delete rule?')){await api('assign/rules/'+b.dataset.dr,{method:'DELETE'});render();}});
@@ -186,15 +189,15 @@ async assign(m){const [emps,rules,st]=await Promise.all([api('employees'),api('a
  const active=emps.filter(e=>e.active);
  $('#pl').onclick=async()=>{const box=$('#plan');box.textContent='Checking…';
   try{const p=await api('assign/plan');
-   if(!p.configured){box.innerHTML='<div class="msg err">Set the “unassigned owner name” in Settings first.</div>';return;}
+   if(!p.rostered){box.innerHTML='<div class="msg err">Add your staff first (Employees → Import names from tasks).</div>';return;}
    const apply=async items=>{const r=await api('assign/apply',{body:{items}});const bad=r.results.filter(x=>!x.ok);say(`Assigned ${r.results.length-bad.length}.`+(bad.length?' Problems: '+bad.map(x=>x.error).join(' | '):''),bad.length>0);};
-   box.innerHTML=`<p><small>${p.manual_untouched} task(s) are owned by someone else and left untouched.</small></p>
+   box.innerHTML=`<p><small>${p.manual_untouched} open task(s) already have a name in Assign_to and are left untouched.</small></p>
    <h4>Ready by rule (${p.proposals.length})</h4><table>${p.proposals.map(x=>`<tr><td>${esc(x.subject)}</td><td>${esc(x.rule)}</td><td>→ <b>${esc(x.employee.name)}</b></td></tr>`).join('')||'<tr><td>None</td></tr>'}</table>
    ${p.proposals.length&&can?'<button class="b g" id="pa">Assign all of these</button>':''}
    <h4>Need your decision (${p.undecided.length})</h4><table>${p.undecided.map((x,i)=>`<tr><td>${esc(x.subject)}<br><small>${esc(x.dept)} · ${esc(x.reason)}</small></td>
    <td><select data-u="${i}"><option value="">Choose…</option>${active.map(e=>`<option value="${e.id}">${esc(e.name)}</option>`).join('')}</select></td>
    <td><input data-k="${i}" placeholder="optional: make a rule for subject containing…"></td><td>${can?`<button class="b" data-ua="${i}">Assign</button>`:''}</td></tr>`).join('')||'<tr><td>None</td></tr>'}</table>
-   <h4>Stuck with inactive staff (${p.reassign.length})</h4><table>${p.reassign.map(x=>`<tr><td>${esc(x.subject)}<br><small>now with ${esc(x.owner)}</small></td><td>${x.employee?'→ <b>'+esc(x.employee.name)+'</b>':'<small>'+esc(x.reason||'No rule matches')+'</small>'}</td><td>${x.employee&&can?`<button class="b" data-ra="${x.id}|${x.employee.id}">Reassign</button>`:''}</td></tr>`).join('')||'<tr><td>None</td></tr>'}</table>`;
+   <h4>Stuck with inactive staff (${p.reassign.length})</h4><table>${p.reassign.map(x=>`<tr><td>${esc(x.subject)}<br><small>now with ${esc(x.owner)} (inactive)</small></td><td>${x.employee?'→ <b>'+esc(x.employee.name)+'</b>':'<small>'+esc(x.reason||'No rule matches')+'</small>'}</td><td>${x.employee&&can?`<button class="b" data-ra="${x.id}|${x.employee.id}">Reassign</button>`:''}</td></tr>`).join('')||'<tr><td>None</td></tr>'}</table>`;
    if($('#pa'))$('#pa').onclick=()=>apply(p.proposals.map(x=>({task_id:x.id,employee_id:x.employee.id})));
    box.querySelectorAll('[data-ua]').forEach(b=>b.onclick=()=>{const i=+b.dataset.ua,e=box.querySelector(`[data-u="${i}"]`).value;if(!e)return alert('Choose an employee');const x=p.undecided[i],k=box.querySelector(`[data-k="${i}"]`).value.trim();
     apply([{task_id:x.id,employee_id:+e,manual:true,subject:x.subject,dept:x.dept,make_rule_text:k||undefined}]);});

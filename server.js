@@ -310,6 +310,9 @@ app.post('/api/employees', MGR, (req, res) => {
   try { db.prepare('INSERT INTO employees(name,zoho_user_id) VALUES(?,?)').run(req.body.name.trim(), req.body.zoho_user_id || null); } catch { return res.status(400).json({ error: 'Already in roster' }); }
   res.json({ ok: true });
 });
+app.get('/api/employees/from-tasks', MGR, async (req, res) => { try { res.json(await AS.namesFromTasks()); } catch (e) { res.status(502).json({ error: e.message }); } });
+app.post('/api/employees/import', MGR, (req, res) => { const n = AS.importNames(req.body.names || []); log(req.user.username, 'employees_import', `${n} added`); res.json({ added: n }); });
+app.put('/api/employees/:id/aliases', MGR, (req, res) => { db.prepare('UPDATE employees SET aliases=? WHERE id=?').run(String(req.body.aliases || '').slice(0, 300), req.params.id); res.json({ ok: true }); });
 app.post('/api/employees/sync', MGR, async (req, res) => { try { res.json(await AS.syncEmployees()); } catch (e) { res.status(502).json({ error: e.message }); } });
 app.post('/api/employees/:id/toggle', MGR, (req, res) => {
   db.prepare('UPDATE employees SET active=1-active WHERE id=?').run(req.params.id);
