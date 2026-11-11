@@ -1,0 +1,3 @@
+node_modules
+portal.db*
+.env

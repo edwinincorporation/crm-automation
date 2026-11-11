@@ -1,0 +1,242 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>CRM Management Portal</title>
+<style>
+*{box-sizing:border-box}body{margin:0;font:14px/1.45 system-ui,Segoe UI,Roboto,sans-serif;background:#f4f6f9;color:#1f2937}
+header{background:#12355b;color:#fff;padding:10px 18px;display:flex;align-items:center;gap:16px}
+header h1{font-size:17px;margin:0;flex:1}header small{opacity:.8}
+nav{display:flex;gap:2px;background:#fff;border-bottom:1px solid #dde3ea;padding:0 12px;flex-wrap:wrap}
+nav button{border:0;background:none;padding:11px 14px;cursor:pointer;font-size:14px;color:#475569;border-bottom:3px solid transparent}
+nav button.on{color:#12355b;border-color:#12355b;font-weight:600}
+main{padding:18px;max-width:1200px;margin:auto}
+.card{background:#fff;border:1px solid #dde3ea;border-radius:8px;padding:14px;margin-bottom:14px}
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:12px}
+.stat b{font-size:26px;display:block}
+table{width:100%;border-collapse:collapse}th,td{text-align:left;padding:7px 8px;border-bottom:1px solid #eef1f5;vertical-align:top}
+th{font-size:12px;text-transform:uppercase;color:#64748b}
+input,select,textarea{font:inherit;padding:7px 9px;border:1px solid #cbd5e1;border-radius:6px;width:100%}
+textarea{min-height:90px}
+button.b{background:#12355b;color:#fff;border:0;border-radius:6px;padding:7px 13px;cursor:pointer}
+button.b.g{background:#15803d}button.b.r{background:#b91c1c}button.b.l{background:#e2e8f0;color:#1f2937}
+.row{display:flex;gap:10px;flex-wrap:wrap;align-items:end;margin-bottom:10px}.row>*{flex:1;min-width:140px}.row>button{flex:0}
+.tag{display:inline-block;padding:1px 8px;border-radius:10px;font-size:12px;background:#e2e8f0;margin:1px}
+.tag.w{background:#fef3c7}.tag.ok{background:#dcfce7}.tag.bad{background:#fee2e2}
+#login{max-width:340px;margin:12vh auto}pre{white-space:pre-wrap;margin:0;font:inherit}
+.msg{padding:9px 12px;border-radius:6px;margin-bottom:10px;background:#e0f2fe}.msg.err{background:#fee2e2}
+label{font-size:12px;color:#64748b;display:block;margin-bottom:2px}
+</style></head><body>
+<div id="app"></div>
+<script>
+const $=s=>document.querySelector(s);
+const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+let me=null,tab='dashboard',flash=null;
+async function api(p,o={}){const r=await fetch('/api/'+p,{method:o.method||(o.body?'POST':'GET'),headers:{'Content-Type':'application/json'},body:o.body?JSON.stringify(o.body):undefined});
+ const j=await r.json().catch(()=>({}));if(r.status===401&&me){me=null;render();}if(!r.ok)throw new Error(j.error||r.status);return j;}
+function say(m,err){flash={m,err};render();}
+const TABS=[['dashboard','Dashboard'],['closer','Task Closer'],['outbox','Outbox / Approvals'],['rules','Action Rules'],['macros','Macros'],['automations','Automations'],['pending','Auto Approvals'],['assign','Task Assignment'],['learn','Learning'],['workflows','Workflow Analysis'],['emails','Email Analysis'],['activity','Activity Log'],['users','Users']];
+
+async function render(){
+ const app=$('#app');
+ if(!me){app.innerHTML=`<div id="login" class="card"><h2>CRM Management Portal</h2>
+ <label>Username</label><input id="u"><br><br><label>Password</label><input id="p" type="password"><br><br>
+ <button class="b" id="go">Login</button><p id="le" style="color:#b91c1c"></p></div>`;
+ const go=async()=>{try{me=await api('login',{body:{username:$('#u').value,password:$('#p').value}});tab='dashboard';render();}catch(e){$('#le').textContent=e.message}};
+ $('#go').onclick=go;$('#p').onkeydown=e=>e.key==='Enter'&&go();return;}
+ const tabs=TABS.filter(t=>t[0]!=='users'||me.role==='admin');
+ app.innerHTML=`<header><h1>CRM Management Portal ${me.demo?'<small>(DEMO data)</small>':''}</h1><small>${esc(me.username)} · ${esc(me.role)}</small><button class="b l" id="lo">Logout</button></header>
+ <nav>${tabs.map(t=>`<button class="${tab===t[0]?'on':''}" data-t="${t[0]}">${t[1]}</button>`).join('')}</nav><main id="m"></main>`;
+ $('#lo').onclick=async()=>{await api('logout',{method:'POST'});me=null;render();};
+ document.querySelectorAll('nav button').forEach(b=>b.onclick=()=>{tab=b.dataset.t;flash=null;render();});
+ const m=$('#m');if(flash){m.innerHTML=`<div class="msg ${flash.err?'err':''}">${esc(flash.m)}</div>`;flash=null;}
+ try{await VIEWS[tab](m);}catch(e){m.insertAdjacentHTML('beforeend',`<div class="msg err">${esc(e.message)}</div>`);}
+}
+const VIEWS={
+async dashboard(m){const d=await api('dashboard');
+ m.insertAdjacentHTML('beforeend',`<div class="grid"><div class="card stat"><b>${d.open}</b>Open tasks</div><div class="card stat"><b>${d.overdue}</b>Overdue</div><div class="card stat"><b>${d.pendingOutbox}</b>Messages awaiting approval</div><div class="card stat"><b>${d.pendingActions}</b>Automation actions to approve</div><div class="card stat"><b>${d.pendingEmails}</b>Emails to review</div></div>
+ <div class="card"><h3>Open tasks by group</h3><table>${Object.entries(d.byDept).sort((a,b)=>b[1]-a[1]).map(([k,v])=>`<tr><td>${esc(k)}</td><td>${v}</td></tr>`).join('')}</table></div>`);},
+
+async closer(m){
+ m.insertAdjacentHTML('beforeend',`<div class="card"><div class="row"><div><label>Search</label><input id="q"></div><div><label>Group (Dept_Name)</label><input id="dp"></div>
+ <div><label>Status</label><select id="st"><option value="">Any open</option><option>Not Started</option><option>In Progress</option><option>Deferred</option><option>Waiting on someone else</option></select></div><button class="b" id="f">Filter</button></div>
+ <div id="tl">Loading…</div></div>`);
+ const load=async()=>{const qs=new URLSearchParams({q:$('#q').value,dept:$('#dp').value,status:$('#st').value});
+  const t=await api('tasks?'+qs);const macros=await api('macros');
+  $('#tl').innerHTML=`<table><tr><th><input type="checkbox" id="all" style="width:auto"></th><th>Task</th><th>Contact</th><th>Group</th><th>Due</th><th>Status</th><th>Action on close</th></tr>
+  ${t.map(x=>`<tr><td><input type="checkbox" class="ck" value="${esc(x.id)}" style="width:auto"></td><td>${esc(x.Subject)}</td><td>${esc(x.Who_Id?.name||'')}</td><td>${esc(x.Dept_Name||'')}</td><td>${esc(x.Due_Date||'')}</td><td>${esc(x.Status)}</td>
+  <td>${x.rules.length?x.rules.map(r=>`<span class="tag w">${esc(r.action_type)}: ${esc(r.name)}</span>`).join(''):'<span class="tag">none</span>'}</td></tr>`).join('')}</table>
+  <p>${t.length} task(s)</p><div class="row"><div><label>Closing note</label><input id="note" placeholder="Saved in the task and available as {{note}}"></div>
+  <button class="b g" id="cl">Close selected</button></div>
+  <label><input type="checkbox" id="skip" style="width:auto"> Close only — do not run email/letter/WhatsApp actions</label>
+  <hr><div class="row"><div><label>Run a macro on selected tasks</label><select id="mc">${macros.map(x=>`<option value="${x.id}">${esc(x.name)} — ${esc(x.summary.join(' → '))}</option>`).join('')}</select></div>
+  <button class="b l" id="mcd">Preview</button><button class="b" id="mcr">Run macro</button></div>`;
+  const runMc=async dry=>{const ids=[...document.querySelectorAll('.ck:checked')].map(c=>c.value);
+   if(!ids.length)return alert('Select tasks first');if(!$('#mc').value)return alert('No macro yet — create one in the Macros tab');
+   if(!dry&&!confirm(`Run this macro on ${ids.length} task(s)?`))return;
+   try{const r=await api('tasks/run-macro',{body:{ids,macro_id:+$('#mc').value,dry}});
+    say((dry?'PREVIEW (nothing changed): ':'Done: ')+r.results.map(x=>(x.subject||x.id)+' → '+(x.steps?x.steps.join('; '):x.error)).join(' | '),false);}catch(e){say(e.message,true);}};
+  $('#mcr').onclick=()=>runMc(false);$('#mcd').onclick=()=>runMc(true);
+  $('#all').onchange=e=>document.querySelectorAll('.ck').forEach(c=>c.checked=e.target.checked);
+  $('#cl').onclick=async()=>{const ids=[...document.querySelectorAll('.ck:checked')].map(c=>c.value);
+   if(!ids.length)return alert('Select tasks first');
+   if(!confirm(`Close ${ids.length} task(s)? Rules with approval go to the Outbox; others are sent immediately.`))return;
+   try{const r=await api('tasks/close',{body:{ids,note:$('#note').value,skipActions:$('#skip').checked}});
+    const q=r.results.reduce((a,x)=>a+(x.queued||0),0),s=r.results.reduce((a,x)=>a+(x.sent||0),0),er=r.results.filter(x=>x.errors?.length||x.error);
+    say(`Closed ${r.results.length} task(s). Sent: ${s}. Waiting for approval: ${q}.`+(er.length?` Problems: ${er.map(x=>x.error||x.errors.join('; ')).join(' | ')}`:''),er.length>0);}catch(e){say(e.message,true);}};};
+ $('#f').onclick=load;await load();},
+
+async outbox(m){const o=await api('outbox');
+ m.insertAdjacentHTML('beforeend',`<div class="card"><table><tr><th>#</th><th>Type</th><th>To</th><th>Message</th><th>Status</th><th></th></tr>
+ ${o.map(x=>`<tr><td>${x.id}</td><td>${esc(x.action_type)}</td><td>${esc(x.to_name)}<br><small>${esc(x.to_email||x.to_phone||'— no address —')}</small></td>
+ <td><b>${esc(x.subject)}</b>${(x.status==='pending'||x.status==='failed')?`<textarea data-b="${x.id}">${esc(x.body)}</textarea>`:`<pre>${esc(x.body)}</pre>`}</td>
+ <td><span class="tag ${x.status.startsWith('sent')?'ok':x.status==='failed'?'bad':''}">${esc(x.status)}</span>${x.error?`<br><small>${esc(x.error)}</small>`:''}</td>
+ <td>${(x.status==='pending'||x.status==='failed')&&me.role!=='executive'?`<button class="b g" data-a="${x.id}">Send</button> <button class="b r" data-r="${x.id}">Reject</button>`:''}</td></tr>`).join('')}</table></div>`);
+ m.querySelectorAll('[data-a]').forEach(b=>b.onclick=async()=>{try{const body=m.querySelector(`[data-b="${b.dataset.a}"]`).value;const r=await api(`outbox/${b.dataset.a}/approve`,{body:{body}});say(r.ok?'Sent':'Send failed: '+r.item.error,!r.ok);}catch(e){say(e.message,true)}});
+ m.querySelectorAll('[data-r]').forEach(b=>b.onclick=async()=>{await api(`outbox/${b.dataset.r}/reject`,{method:'POST',body:{}});render();});},
+
+async rules(m){const r=await api('rules');
+ m.insertAdjacentHTML('beforeend',`<div class="card"><h3>Action Rules — what happens when a task is closed</h3>
+ <p>If the task's Subject (or Group) contains the match text, the chosen action is prepared. Placeholders: <code>{{name}} {{subject}} {{dept}} {{email}} {{phone}} {{note}}</code></p>
+ <div class="row"><div><label>Rule name</label><input id="rn"></div><div><label>Match in</label><select id="rf"><option value="Subject">Task subject</option><option value="Dept_Name">Group (Dept_Name)</option></select></div>
+ <div><label>Match text</label><input id="rm"></div><div><label>Action</label><select id="ra"><option value="email">Send email</option><option value="letter">Send letter (PDF by email)</option><option value="whatsapp">Send WhatsApp</option></select></div></div>
+ <div class="row"><div><label>Subject (email / letter)</label><input id="rs"></div></div>
+ <label>Message</label><textarea id="rb" placeholder="Dear {{name}}, ..."></textarea><br>
+ <label><input type="checkbox" id="rq" checked style="width:auto"> Ask for approval before sending (recommended)</label><br>
+ <button class="b" id="rsv">Add rule</button></div>
+ <div class="card"><table><tr><th>Name</th><th>Match</th><th>Action</th><th>Approval</th><th></th></tr>
+ ${r.map(x=>`<tr><td>${esc(x.name)}</td><td>${esc(x.match_field)} contains “${esc(x.match_value)}”</td><td>${esc(x.action_type)}</td><td>${x.require_approval?'Yes':'No — sends automatically'}</td><td>${me.role!=='executive'?`<button class="b r" data-d="${x.id}">Delete</button>`:''}</td></tr>`).join('')}</table></div>`);
+ $('#rsv').onclick=async()=>{try{await api('rules',{body:{name:$('#rn').value,match_field:$('#rf').value,match_value:$('#rm').value,action_type:$('#ra').value,subject:$('#rs').value,body:$('#rb').value,require_approval:$('#rq').checked}});say('Rule saved');}catch(e){say(e.message,true)}};
+ m.querySelectorAll('[data-d]').forEach(b=>b.onclick=async()=>{if(confirm('Delete this rule?')){await api('rules/'+b.dataset.d,{method:'DELETE'});render();}});},
+
+async macros(m){const ms=await api('macros');
+ m.insertAdjacentHTML('beforeend',`<div class="card"><h3>New macro — a saved set of actions for a task</h3>
+ <p>Fill only the parts you need. Steps run in this order: fields → assign → note → follow-up task → message → close.</p>
+ <div class="row"><div><label>Macro name</label><input id="mn" placeholder="e.g. Not interested - close"></div></div>
+ <label>Fields to update (one per line, <code>ApiName=Value</code>, e.g. <code>Dept_Name=All Conferences</code>)</label><textarea id="mf" style="min-height:60px"></textarea>
+ <div class="row"><div><label>Assign task to (Zoho user name)</label><input id="ma"></div><div><label>Note to add</label><input id="mt" placeholder="supports {{name}} {{subject}} {{dept}}"></div></div>
+ <div class="row"><div><label>Follow-up task subject</label><input id="mfs"></div><div><label>Due in (days)</label><input id="mfd" type="number" value="2"></div></div>
+ <div class="row"><div><label>Send message</label><select id="mc"><option value="">— none —</option><option value="email">Email</option><option value="letter">Letter (PDF)</option><option value="whatsapp">WhatsApp</option></select></div><div><label>Message subject</label><input id="ms"></div></div>
+ <textarea id="mb" placeholder="Message text, e.g. Dear {{name}}, ..."></textarea>
+ <label><input type="checkbox" id="mq" checked style="width:auto"> Ask approval before the message is sent</label>
+ <label><input type="checkbox" id="mcl" style="width:auto"> Close the task at the end</label><br>
+ <button class="b" id="msv">Save macro</button></div>
+ <div class="card"><table><tr><th>Macro</th><th>Steps</th><th></th></tr>${ms.map(x=>`<tr><td><b>${esc(x.name)}</b></td><td>${x.summary.map(esc).join(' → ')}</td><td>${me.role!=='executive'?`<button class="b r" data-d="${x.id}">Delete</button>`:''}</td></tr>`).join('')}</table></div>`);
+ $('#msv').onclick=async()=>{const st=[];const f={};
+  $('#mf').value.split('\n').map(l=>l.trim()).filter(Boolean).forEach(l=>{const i=l.indexOf('=');if(i>0)f[l.slice(0,i).trim()]=l.slice(i+1).trim();});
+  if(Object.keys(f).length)st.push({type:'update_fields',fields:f});
+  if($('#ma').value)st.push({type:'assign',owner:$('#ma').value});
+  if($('#mt').value)st.push({type:'note',text:$('#mt').value});
+  if($('#mfs').value)st.push({type:'create_task',subject:$('#mfs').value,days:+$('#mfd').value});
+  if($('#mc').value)st.push({type:'message',channel:$('#mc').value,subject:$('#ms').value,body:$('#mb').value,approval:$('#mq').checked});
+  if($('#mcl').checked)st.push({type:'close'});
+  try{await api('macros',{body:{name:$('#mn').value,steps:st}});say('Macro saved');}catch(e){say(e.message,true)}};
+ m.querySelectorAll('[data-d]').forEach(b=>b.onclick=async()=>{if(confirm('Delete this macro?')){try{await api('macros/'+b.dataset.d,{method:'DELETE'});render();}catch(e){say(e.message,true)}}});},
+
+async automations(m){const [as,ms]=await Promise.all([api('automations'),api('macros')]);
+ const sched=a=>{try{const s=JSON.parse(a.schedule);return s.type==='times'?`daily at ${s.times.join(', ')} (IST)`+(s.days?.length&&s.days.length<7?` on days ${s.days.join(',')}`:''):s.type==='every'?`every ${s.minutes} min`:'manual only';}catch{return '—'}};
+ m.insertAdjacentHTML('beforeend',`<div class="card"><h3>New automation — which tasks, which macro, when</h3>
+ <p>Start in <b>Preview</b> (shows what it would do, changes nothing), then switch to <b>Ask approval</b>, and only later to <b>Automatic</b>. Each task is handled once per automation.</p>
+ <div class="row"><div><label>Name</label><input id="an"></div><div><label>Match in</label><select id="af"><option value="Subject">Task subject</option><option value="Dept_Name">Group (Dept_Name)</option></select></div><div><label>Match text</label><input id="am"></div>
+ <div><label>Status is</label><select id="as"><option value="">Any</option><option>Not Started</option><option>In Progress</option><option>Deferred</option><option>Waiting on someone else</option></select></div><div><label>Overdue at least (days)</label><input id="ao" type="number" value="0"></div></div>
+ <div class="row"><div><label>Run this macro</label><select id="amc">${ms.map(x=>`<option value="${x.id}">${esc(x.name)}</option>`).join('')}</select></div>
+ <div><label>Mode</label><select id="amo"><option value="preview">Preview only</option><option value="approve">Ask approval</option><option value="auto">Automatic</option></select></div>
+ <div><label>Schedule</label><select id="asc"><option value="manual">Manual only (Run now button)</option><option value="times">Daily at times</option><option value="every">Every N minutes</option></select></div>
+ <div><label>Times (IST, comma) / minutes</label><input id="at" placeholder="09:30,17:00  or  60"></div><div><label>Max tasks per run</label><input id="ax" type="number" value="25"></div></div>
+ <button class="b" id="asv">Save automation</button></div>
+ <div class="card"><table><tr><th>Automation</th><th>Condition</th><th>Macro / mode</th><th>Schedule</th><th>Last run</th><th></th></tr>
+ ${as.map(x=>{let lr={};try{lr=JSON.parse(x.last_result||'{}')}catch{}return `<tr><td><b>${esc(x.name)}</b><br><span class="tag ${x.active?'ok':'bad'}">${x.active?'on':'off'}</span></td>
+ <td>${x.match_value?esc(x.match_field)+' contains “'+esc(x.match_value)+'”<br>':''}${x.status_filter?'Status '+esc(x.status_filter)+'<br>':''}${x.min_overdue_days?'Overdue ≥ '+x.min_overdue_days+'d':''}</td>
+ <td>${esc(x.macro_name||'?')}<br><span class="tag w">${esc(x.mode)}</span></td><td>${esc(sched(x))}</td>
+ <td><small>${x.last_run?esc(new Date(x.last_run).toLocaleString('en-IN')):'never'}<br>${lr.error?'Error: '+esc(lr.error):lr.matched!==undefined?`matched ${lr.matched}, handled ${lr.handled}`:''}</small>${lr.notes?.length?`<details><summary>details</summary><small>${lr.notes.map(esc).join('<br>')}</small></details>`:''}</td>
+ <td>${me.role!=='executive'?`<button class="b" data-run="${x.id}">Run now</button> <button class="b l" data-tg="${x.id}">${x.active?'Pause':'Resume'}</button> <button class="b l" data-rs="${x.id}" title="Let it handle already-seen tasks again">Reset</button> <button class="b r" data-d="${x.id}">Delete</button>`:''}</td></tr>`}).join('')}</table></div>`);
+ $('#asv').onclick=async()=>{const t=$('#at').value,k=$('#asc').value;let schedule={type:'manual'};
+  if(k==='times')schedule={type:'times',times:t.split(',').map(x=>x.trim()).filter(Boolean)};if(k==='every')schedule={type:'every',minutes:+t||60};
+  try{await api('automations',{body:{name:$('#an').value,match_field:$('#af').value,match_value:$('#am').value,status_filter:$('#as').value,min_overdue_days:+$('#ao').value,macro_id:+$('#amc').value,mode:$('#amo').value,schedule,max_per_run:+$('#ax').value}});say('Automation saved');}catch(e){say(e.message,true)}};
+ m.querySelectorAll('[data-run]').forEach(b=>b.onclick=async()=>{try{const r=await api(`automations/${b.dataset.run}/run`,{method:'POST',body:{}});say(`Run finished: matched ${r.matched}, handled ${r.handled} (${r.mode}).`);}catch(e){say(e.message,true)}});
+ m.querySelectorAll('[data-tg]').forEach(b=>b.onclick=async()=>{await api(`automations/${b.dataset.tg}/toggle`,{method:'POST',body:{}});render();});
+ m.querySelectorAll('[data-rs]').forEach(b=>b.onclick=async()=>{if(confirm('Forget which tasks were already handled?')){await api(`automations/${b.dataset.rs}/reset`,{method:'POST',body:{}});say('Reset');}});
+ m.querySelectorAll('[data-d]').forEach(b=>b.onclick=async()=>{if(confirm('Delete this automation?')){await api('automations/'+b.dataset.d,{method:'DELETE'});render();}});},
+
+async pending(m){const p=await api('pending');
+ m.insertAdjacentHTML('beforeend',`<div class="card"><h3>Actions waiting for your approval (from automations)</h3><table><tr><th>Task</th><th>Macro</th><th>From</th><th></th></tr>
+ ${p.map(x=>`<tr><td>${esc(x.task_subject)}</td><td>${esc(x.macro_name)}</td><td>${esc(x.automation_name)}</td><td>${me.role!=='executive'?`<button class="b g" data-a="${x.id}">Approve & run</button> <button class="b r" data-r="${x.id}">Reject</button>`:''}</td></tr>`).join('')||'<tr><td colspan=4>Nothing waiting.</td></tr>'}</table></div>`);
+ m.querySelectorAll('[data-a]').forEach(b=>b.onclick=async()=>{try{const r=await api(`pending/${b.dataset.a}/approve`,{method:'POST',body:{}});say('Done: '+r.out.join('; '));}catch(e){say(e.message,true)}});
+ m.querySelectorAll('[data-r]').forEach(b=>b.onclick=async()=>{await api(`pending/${b.dataset.r}/reject`,{method:'POST',body:{}});render();});},
+
+async assign(m){const [emps,rules,st]=await Promise.all([api('employees'),api('assign/rules'),api('assign/settings')]);
+ const en=Object.fromEntries(emps.map(e=>[e.id,e.name]));const can=me.role!=='executive';
+ m.insertAdjacentHTML('beforeend',`<div class="card"><h3>1. Settings</h3>
+ <div class="row"><div><label>“Unassigned” owner name in Zoho (tasks owned by this name are the ones the portal may assign)</label><input id="sdo" value="${esc(st.default_owner)}" placeholder="e.g. Edwin Incorporation"></div>
+ <div><label>Auto-assign matched tasks</label><select id="sau"><option value="0" ${st.assign_auto?'':'selected'}>Off — I press the button</option><option value="1" ${st.assign_auto?'selected':''}>On — automatically</option></select></div>
+ <div><label>Check every (minutes)</label><input id="sam" type="number" value="${st.assign_minutes}"></div><button class="b" id="ssv">Save</button></div>
+ <p><small>Tasks owned by anyone else are treated as manually assigned and are never changed. Only tasks of an <b>Inactive</b> employee are offered for reassignment, and only with your click.</small></p></div>
+ <div class="card"><h3>2. Employees</h3><div class="row"><div><label>Add name (must match the Zoho user)</label><input id="en"></div><button class="b" id="ead">Add</button><button class="b l" id="esy">Sync from Zoho</button></div>
+ <table>${emps.map(e=>`<tr><td>${esc(e.name)}</td><td><span class="tag ${e.active?'ok':'bad'}">${e.active?'Active':'Inactive'}</span></td><td><small>${e.zoho_user_id?'linked':'not linked — press Sync'}</small></td>
+ <td>${can?`<button class="b l" data-tg="${e.id}">${e.active?'Make inactive':'Make active'}</button> <button class="b r" data-de="${e.id}">Remove</button>`:''}</td></tr>`).join('')||'<tr><td>No employees yet — press “Sync from Zoho”.</td></tr>'}</table></div>
+ <div class="card"><h3>3. Assignment rules</h3><div class="row"><div><label>Rule name</label><input id="rn"></div><div><label>Match in</label><select id="rf"><option value="Subject">Task subject</option><option value="Dept_Name">Group (Dept_Name)</option></select></div><div><label>Match text</label><input id="rm"></div></div>
+ <label>Assign to (tasks go to whoever of these active people has the fewest open tasks)</label><div class="row">${emps.map(e=>`<label style="display:inline-flex;gap:4px;align-items:center;flex:0"><input type="checkbox" class="re" value="${e.id}" style="width:auto"> ${esc(e.name)}${e.active?'':' (inactive)'}</label>`).join('')}</div>
+ <button class="b" id="rsv">Add rule</button><table style="margin-top:10px">${rules.map(r=>`<tr><td>${esc(r.name)}</td><td>${esc(r.match_field)} contains “${esc(r.match_value)}”</td><td>${r.employee_ids.map(i=>esc(en[i]||'?')).join(', ')}</td><td>${can?`<button class="b r" data-dr="${r.id}">Delete</button>`:''}</td></tr>`).join('')}</table></div>
+ <div class="card"><h3>4. What needs assigning now</h3><button class="b" id="pl">Check tasks</button><div id="plan"></div></div>`);
+ $('#ssv').onclick=async()=>{try{await api('assign/settings',{body:{default_owner:$('#sdo').value,assign_auto:$('#sau').value==='1',assign_minutes:+$('#sam').value}});say('Saved');}catch(e){say(e.message,true)}};
+ $('#ead').onclick=async()=>{try{await api('employees',{body:{name:$('#en').value}});render();}catch(e){say(e.message,true)}};
+ $('#esy').onclick=async()=>{try{const r=await api('employees/sync',{method:'POST',body:{}});say(`Zoho users: ${r.total}, newly added: ${r.added}`);}catch(e){say(e.message,true)}};
+ m.querySelectorAll('[data-tg]').forEach(b=>b.onclick=async()=>{await api(`employees/${b.dataset.tg}/toggle`,{method:'POST',body:{}});render();});
+ m.querySelectorAll('[data-de]').forEach(b=>b.onclick=async()=>{if(confirm('Remove from roster?')){await api('employees/'+b.dataset.de,{method:'DELETE'});render();}});
+ m.querySelectorAll('[data-dr]').forEach(b=>b.onclick=async()=>{if(confirm('Delete rule?')){await api('assign/rules/'+b.dataset.dr,{method:'DELETE'});render();}});
+ $('#rsv').onclick=async()=>{try{await api('assign/rules',{body:{name:$('#rn').value,match_field:$('#rf').value,match_value:$('#rm').value,employee_ids:[...m.querySelectorAll('.re:checked')].map(c=>+c.value)}});say('Rule saved');}catch(e){say(e.message,true)}};
+ const active=emps.filter(e=>e.active);
+ $('#pl').onclick=async()=>{const box=$('#plan');box.textContent='Checking…';
+  try{const p=await api('assign/plan');
+   if(!p.configured){box.innerHTML='<div class="msg err">Set the “unassigned owner name” in Settings first.</div>';return;}
+   const apply=async items=>{const r=await api('assign/apply',{body:{items}});const bad=r.results.filter(x=>!x.ok);say(`Assigned ${r.results.length-bad.length}.`+(bad.length?' Problems: '+bad.map(x=>x.error).join(' | '):''),bad.length>0);};
+   box.innerHTML=`<p><small>${p.manual_untouched} task(s) are owned by someone else and left untouched.</small></p>
+   <h4>Ready by rule (${p.proposals.length})</h4><table>${p.proposals.map(x=>`<tr><td>${esc(x.subject)}</td><td>${esc(x.rule)}</td><td>→ <b>${esc(x.employee.name)}</b></td></tr>`).join('')||'<tr><td>None</td></tr>'}</table>
+   ${p.proposals.length&&can?'<button class="b g" id="pa">Assign all of these</button>':''}
+   <h4>Need your decision (${p.undecided.length})</h4><table>${p.undecided.map((x,i)=>`<tr><td>${esc(x.subject)}<br><small>${esc(x.dept)} · ${esc(x.reason)}</small></td>
+   <td><select data-u="${i}"><option value="">Choose…</option>${active.map(e=>`<option value="${e.id}">${esc(e.name)}</option>`).join('')}</select></td>
+   <td><input data-k="${i}" placeholder="optional: make a rule for subject containing…"></td><td>${can?`<button class="b" data-ua="${i}">Assign</button>`:''}</td></tr>`).join('')||'<tr><td>None</td></tr>'}</table>
+   <h4>Stuck with inactive staff (${p.reassign.length})</h4><table>${p.reassign.map(x=>`<tr><td>${esc(x.subject)}<br><small>now with ${esc(x.owner)}</small></td><td>${x.employee?'→ <b>'+esc(x.employee.name)+'</b>':'<small>'+esc(x.reason||'No rule matches')+'</small>'}</td><td>${x.employee&&can?`<button class="b" data-ra="${x.id}|${x.employee.id}">Reassign</button>`:''}</td></tr>`).join('')||'<tr><td>None</td></tr>'}</table>`;
+   if($('#pa'))$('#pa').onclick=()=>apply(p.proposals.map(x=>({task_id:x.id,employee_id:x.employee.id})));
+   box.querySelectorAll('[data-ua]').forEach(b=>b.onclick=()=>{const i=+b.dataset.ua,e=box.querySelector(`[data-u="${i}"]`).value;if(!e)return alert('Choose an employee');const x=p.undecided[i],k=box.querySelector(`[data-k="${i}"]`).value.trim();
+    apply([{task_id:x.id,employee_id:+e,manual:true,subject:x.subject,dept:x.dept,make_rule_text:k||undefined}]);});
+   box.querySelectorAll('[data-ra]').forEach(b=>b.onclick=()=>{const [t,e]=b.dataset.ra.split('|');apply([{task_id:t,employee_id:+e}]);});
+  }catch(e){box.innerHTML=`<div class="msg err">${esc(e.message)}</div>`;}};},
+
+async learn(m){const s=await api('suggestions');
+ m.insertAdjacentHTML('beforeend',`<div class="card"><h3>Learning — rules the portal suggests from what you do by hand</h3>
+ <p>When you repeat the same action 3+ times (run a macro, or assign by hand), it appears here. Accepting creates the rule in safe mode (automations start as <b>Preview</b>); nothing is created without your click.</p>
+ <table>${s.map(x=>`<tr><td>${esc(x.sentence)}<br><small>Example: ${esc(x.example)}</small></td><td>${me.role!=='executive'?`<button class="b g" data-a="${esc(x.key)}">Create rule</button> <button class="b l" data-n="${esc(x.key)}">Not now</button>`:''}</td></tr>`).join('')||'<tr><td>No suggestions yet. They appear after you repeat an action about 3 times.</td></tr>'}</table></div>`);
+ m.querySelectorAll('[data-a]').forEach(b=>b.onclick=async()=>{try{await api('suggestions/accept',{body:{key:b.dataset.a}});say('Rule created — find it under Automations / Task Assignment.');}catch(e){say(e.message,true)}});
+ m.querySelectorAll('[data-n]').forEach(b=>b.onclick=async()=>{await api('suggestions/dismiss',{body:{key:b.dataset.n}});render();});},
+
+async workflows(m){const w=await api('workflows');
+ m.insertAdjacentHTML('beforeend',`<div class="grid"><div class="card stat"><b>${w.total}</b>Workflow rules</div><div class="card stat"><b>${w.active}</b>Active</div><div class="card stat"><b>${w.issues.length}</b>Issues found</div></div>
+ <div class="card"><table><tr><th>Name</th><th>Module</th><th>Trigger</th><th>Active</th><th>Last run</th><th>Findings</th></tr>
+ ${w.rows.map(x=>`<tr><td>${esc(x.name)}</td><td>${esc(x.module)}</td><td>${esc(x.trigger)}</td><td>${x.active?'Yes':'No'}</td><td>${esc(x.last||'—')}</td><td>${x.flags.map(f=>`<span class="tag w">${esc(f)}</span>`).join('')||'<span class="tag ok">OK</span>'}</td></tr>`).join('')}</table></div>`);},
+
+async emails(m){const e=await api('emails');
+ m.insertAdjacentHTML('beforeend',`<div class="card"><h3>Add an email for analysis</h3><div class="row"><div><label>From email</label><input id="ef"></div><div><label>Subject</label><input id="es"></div></div>
+ <textarea id="eb" placeholder="Paste the email body"></textarea><br><button class="b" id="ea">Analyse</button>
+ <p><small>To feed emails automatically, POST them to <code>/api/emails/ingest</code> with header <code>x-ingest-key</code> (from Gmail Apps Script or similar).</small></p></div>
+ <div class="card"><table><tr><th>Email</th><th>Category</th><th>Found</th><th>Proposed CRM updates</th><th></th></tr>
+ ${e.map(x=>`<tr><td><b>${esc(x.subject)}</b><br><small>${esc(x.from_email)}</small><pre>${esc(x.body.slice(0,200))}</pre></td><td><span class="tag">${esc(x.category)}</span></td>
+ <td><small>${Object.entries(x.extracted).filter(([,v])=>v).map(([k,v])=>`${esc(k)}: ${esc(v)}`).join('<br>')}</small></td>
+ <td>${x.status==='pending'?x.proposals.map((p,i)=>`<label><input type="checkbox" class="pc" data-e="${x.id}" value="${i}" checked style="width:auto"> ${esc(p.label||'Add note to record')}</label>`).join(''):`<span class="tag ${x.status==='applied'?'ok':''}">${esc(x.status)}</span>`}</td>
+ <td>${x.status==='pending'&&me.role!=='executive'?`<button class="b g" data-ap="${x.id}">Apply</button> <button class="b l" data-ds="${x.id}">Dismiss</button>`:''}</td></tr>`).join('')}</table></div>`);
+ $('#ea').onclick=async()=>{try{await api('emails/ingest',{body:{from_email:$('#ef').value,subject:$('#es').value,body:$('#eb').value}});render();}catch(x){say(x.message,true)}};
+ m.querySelectorAll('[data-ap]').forEach(b=>b.onclick=async()=>{const idx=[...m.querySelectorAll(`.pc[data-e="${b.dataset.ap}"]:checked`)].map(c=>+c.value);
+  try{const r=await api(`emails/${b.dataset.ap}/apply`,{body:{indexes:idx}});say(`Updated ${r.record.module.slice(0,-1)} ${r.record.name||''}: ${r.done.join(', ')}`);}catch(x){say(x.message,true)}});
+ m.querySelectorAll('[data-ds]').forEach(b=>b.onclick=async()=>{await api(`emails/${b.dataset.ds}/dismiss`,{method:'POST',body:{}});render();});},
+
+async activity(m){const a=await api('activity');
+ m.insertAdjacentHTML('beforeend',`<div class="card"><table><tr><th>When (UTC)</th><th>User</th><th>Action</th><th>Detail</th></tr>${a.map(x=>`<tr><td>${esc(x.at)}</td><td>${esc(x.user)}</td><td>${esc(x.action)}</td><td>${esc(x.detail)}</td></tr>`).join('')}</table></div>`);},
+
+async users(m){const u=await api('users');
+ m.insertAdjacentHTML('beforeend',`<div class="card"><div class="row"><div><label>Username</label><input id="nu"></div><div><label>Password (min 8)</label><input id="np" type="password"></div>
+ <div><label>Role</label><select id="nr"><option>executive</option><option>manager</option><option>admin</option></select></div><button class="b" id="na">Add user</button></div>
+ <p><small>admin: everything · manager: close tasks, approve, rules · executive: view only</small></p>
+ <table>${u.map(x=>`<tr><td>${esc(x.username)}</td><td>${esc(x.role)}</td><td><button class="b r" data-u="${x.id}">Delete</button></td></tr>`).join('')}</table></div>`);
+ $('#na').onclick=async()=>{try{await api('users',{body:{username:$('#nu').value,password:$('#np').value,role:$('#nr').value}});render();}catch(e){say(e.message,true)}};
+ m.querySelectorAll('[data-u]').forEach(b=>b.onclick=async()=>{if(confirm('Delete user?')){try{await api('users/'+b.dataset.u,{method:'DELETE'});render();}catch(e){say(e.message,true)}}});}
+};
+(async()=>{try{me=await api('me');}catch{}render();})();
+</script></body></html>
