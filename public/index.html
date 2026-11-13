@@ -33,7 +33,7 @@ let me=null,tab='dashboard',flash=null;
 async function api(p,o={}){const r=await fetch('/api/'+p,{method:o.method||(o.body?'POST':'GET'),headers:{'Content-Type':'application/json'},body:o.body?JSON.stringify(o.body):undefined});
  const j=await r.json().catch(()=>({}));if(r.status===401&&me){me=null;render();}if(!r.ok)throw new Error(j.error||r.status);return j;}
 function say(m,err){flash={m,err};render();}
-const TABS=[['dashboard','Dashboard'],['closer','Task Closer'],['outbox','Outbox / Approvals'],['rules','Action Rules'],['macros','Macros'],['automations','Automations'],['pending','Auto Approvals'],['assign','Task Assignment'],['learn','Learning'],['workflows','Workflow Analysis'],['emails','Email Analysis'],['activity','Activity Log'],['users','Users']];
+const TABS=[['dashboard','Dashboard'],['closer','Task Closer'],['letters','Send Letter'],['outbox','Outbox / Approvals'],['rules','Action Rules'],['macros','Macros'],['automations','Automations'],['pending','Auto Approvals'],['assign','Task Assignment'],['learn','Learning'],['workflows','Workflow Analysis'],['emails','Email Analysis'],['activity','Activity Log'],['users','Users']];
 
 async function render(){
  const app=$('#app');
@@ -162,6 +162,21 @@ async pending(m){const p=await api('pending');
  m.querySelectorAll('[data-a]').forEach(b=>b.onclick=async()=>{try{const r=await api(`pending/${b.dataset.a}/approve`,{method:'POST',body:{}});say('Done: '+r.out.join('; '));}catch(e){say(e.message,true)}});
  m.querySelectorAll('[data-r]').forEach(b=>b.onclick=async()=>{await api(`pending/${b.dataset.r}/reject`,{method:'POST',body:{}});render();});},
 
+async letters(m){const can=me.role!=='executive';
+ m.insertAdjacentHTML('beforeend',`<div class="card"><h3>Send Letter</h3><p><small>Search the contact, tick it and press <b>Send Letter</b>. The letter goes to the candidate and that contact's open “letter” tasks are closed — only after the letter was sent.</small></p>
+ <div class="row"><div><label>Search contact (name or email)</label><input id="lq" placeholder="type 2+ letters, press Enter"></div><button class="b" id="lgo">Search</button></div>
+ <div id="lres"></div></div><div class="card"><h3>Recent letters</h3><div id="llog"></div></div>`);
+ const sel=new Map();
+ const draw=rows=>{$('#lres').innerHTML=`<table>${rows.map(c=>`<tr><td style="width:30px"><input type="checkbox" class="lc" value="${esc(c.id)}" ${sel.has(c.id)?'checked':''} style="width:auto"></td><td>${esc(c.name)}<br><small>${esc(c.email)}</small></td></tr>`).join('')||'<tr><td>No contacts found</td></tr>'}</table>
+  ${can?'<button class="b l" id="lpv">Preview</button> <button class="b g" id="lsd">Send Letter</button>':''}<div id="lout"></div>`;
+  $('#lres').querySelectorAll('.lc').forEach(c=>c.onchange=()=>{c.checked?sel.set(c.value,rows.find(r=>r.id===c.value).name):sel.delete(c.value);});
+  if(can){$('#lpv').onclick=async()=>{try{if(!sel.size)return alert('Select a contact');const p=await api('letters/preview',{body:{ids:[...sel.keys()]}});
+    $('#lout').innerHTML=(p.dry?'<div class="msg">Safe mode (DRY_RUN): nothing will be sent or closed.</div>':'')+p.contacts.map(c=>`<p><b>${esc(c.name)}</b> <small>${esc(c.email)}</small><br>${c.tasks.length?'Will close: '+c.tasks.map(t=>esc(t.subject)).join(' · '):'<small>No open letter task — only the letter will go.</small>'}</p>`).join('');}catch(e){say(e.message,true)}};
+   $('#lsd').onclick=async()=>{try{if(!sel.size)return alert('Select a contact');if(!confirm('Send letter to '+sel.size+' contact(s) and close their letter tasks?'))return;const r=await api('letters/send',{body:{ids:[...sel.keys()]}});
+    $('#lout').innerHTML=r.results.map(x=>`<p>${x.error?'<span class="tag bad">Failed</span>':'<span class="tag ok">'+(x.dry?'Dry run':'Sent')+'</span>'} <b>${esc(x.name)}</b> ${x.error?esc(x.error):(x.dry?'would close '+(x.would_close||[]).length+' task(s)':'closed '+x.closed.length+' task(s)')}</p>`).join('');sel.clear();loadLog();}catch(e){say(e.message,true)}};}};
+ const search=async()=>{try{draw(await api('letters/contacts?q='+encodeURIComponent($('#lq').value)));}catch(e){say(e.message,true)}};
+ const loadLog=async()=>{const l=await api('letters/log');$('#llog').innerHTML=`<table>${l.map(x=>`<tr><td>${esc(x.at)}</td><td>${esc(x.contact_name)}</td><td>${esc(x.result)}</td><td><small>${esc(x.closed||'')}</small></td></tr>`).join('')||'<tr><td>None yet</td></tr>'}</table>`;};
+ $('#lgo').onclick=search;$('#lq').onkeydown=e=>{if(e.key==='Enter')search();};search();loadLog();},
 async assign(m){const [emps,rules,st]=await Promise.all([api('employees'),api('assign/rules'),api('assign/settings')]);
  const en=Object.fromEntries(emps.map(e=>[e.id,e.name]));const can=me.role!=='executive';
  m.insertAdjacentHTML('beforeend',`<div class="card"><h3>1. Settings</h3>

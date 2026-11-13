@@ -7,6 +7,7 @@ const { send } = require('./lib/senders');
 const A = require('./lib/analyze');
 const E = require('./lib/engine');
 const AS = require('./lib/assign');
+const LT = require('./lib/letters');
 
 const app = express();
 app.use(express.json({ limit: '2mb' }));
@@ -302,6 +303,15 @@ app.post('/api/pending/:id/approve', MGR, async (req, res) => {
   } catch (e) { res.status(502).json({ error: e.message }); }
 });
 app.post('/api/pending/:id/reject', MGR, (req, res) => { db.prepare("UPDATE pending_actions SET status='rejected' WHERE id=? AND status='pending'").run(req.params.id); res.json({ ok: true }); });
+
+// ---------- Send Letter ----------
+app.get('/api/letters/contacts', ANY, async (req, res) => { try { res.json(await LT.search(req.query.q)); } catch (e) { res.status(502).json({ error: e.message }); } });
+app.post('/api/letters/preview', MGR, async (req, res) => { try { res.json(await LT.preview((req.body.ids || []).slice(0, 50))); } catch (e) { res.status(502).json({ error: e.message }); } });
+app.post('/api/letters/send', MGR, async (req, res) => {
+  const ids = (req.body.ids || []).slice(0, 50); if (!ids.length) return res.status(400).json({ error: 'Select at least one contact' });
+  try { res.json(await LT.send(ids, req.user.username)); } catch (e) { res.status(502).json({ error: e.message }); }
+});
+app.get('/api/letters/log', ANY, (req, res) => res.json(db.prepare('SELECT * FROM letter_log ORDER BY id DESC LIMIT 100').all()));
 
 // ---------- Employees, assignment rules, learning ----------
 app.get('/api/employees', ANY, (req, res) => res.json(db.prepare('SELECT * FROM employees ORDER BY active DESC, name').all()));
