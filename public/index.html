@@ -229,7 +229,7 @@ async mailmeter(m){const can=me.role!=='executive';
  ${me.role!=='executive'?`<details><summary><small>Task subject ka shuru</small></summary><div class="row"><div><input id="mpx"></div><button class="b l" id="mpsv">Save</button></div></details>`:''}
  <div id="mres">Check ho raha hai…</div></div>`);
  let D=null;
- const draw=()=>{const todo=D.rows.filter(r=>!r.handled&&r.contact),other=D.rows.filter(r=>r.handled||!r.contact);
+ const draw=()=>{const todo=D.rows.filter(r=>!r.handled&&r.contact&&!r.problem),other=D.rows.filter(r=>r.handled||!r.contact||r.problem);
   $('#mpx')&&($('#mpx').value=D.prefix);
   $('#mres').innerHTML=(D.dry?'<div class="msg">TEST MODE: tasks sach me nahi banenge, sirf dikhega.</div>':'')+
   `<h4>Task banana baaki (${todo.length})</h4>${todo.length?`<table><tr><th><input type="checkbox" id="mall" checked style="width:auto"></th><th>Insaan</th><th>Campaign</th><th>Kya kiya</th><th>Task ka subject</th></tr>
