@@ -211,46 +211,49 @@ async letters(m){const can=me.role!=='executive';
  $('#sgo').onclick=search;$('#sq').onkeydown=e=>{if(e.key==='Enter')search();};
  Q=await api('letters/templates').then(t=>({templates:t,rows:[]})).catch(()=>Q);loadQ();loadLog();},
 async assign(m){const [emps,rules,st]=await Promise.all([api('employees'),api('assign/rules'),api('assign/settings')]);
- const en=Object.fromEntries(emps.map(e=>[e.id,e.name]));const can=me.role!=='executive';
- m.insertAdjacentHTML('beforeend',`<div class="card"><h3>1. Settings</h3>
- <div class="row"><div><label>Auto-assign matched tasks</label><select id="sau"><option value="0" ${st.assign_auto?'':'selected'}>Off — I press the button</option><option value="1" ${st.assign_auto?'selected':''}>On — automatically</option></select></div>
- <div><label>Check every (minutes)</label><input id="sam" type="number" value="${st.assign_minutes}"></div><button class="b" id="ssv">Save</button></div>
- <p><small>The portal writes the staff name into the task's <b>Assign_to</b> field; the group (Dept_Name) is never changed. Only tasks whose Assign_to is <b>empty</b> are assigned. Any task that already has a name is treated as manually assigned and left alone. Only tasks of an <b>Inactive</b> employee are offered for reassignment, and only with your click.</small></p></div>
- <div class="card"><h3>2. Employees</h3><div class="row"><div><label>Add name (as you type it in Assign_to)</label><input id="en"></div><button class="b" id="ead">Add</button><button class="b l" id="eim">Import names from tasks</button></div><div id="imp"></div>
- <table>${emps.map(e=>`<tr><td>${esc(e.name)}</td><td><span class="tag ${e.active?'ok':'bad'}">${e.active?'Active':'Inactive'}</span></td><td><input data-al="${e.id}" value="${esc(e.aliases||'')}" placeholder="other spellings, comma separated" ${can?'':'disabled'}></td>
- <td>${can?`<button class="b l" data-tg="${e.id}">${e.active?'Make inactive':'Make active'}</button> <button class="b r" data-de="${e.id}">Remove</button>`:''}</td></tr>`).join('')||'<tr><td>No employees yet — press “Import names from tasks”.</td></tr>'}</table></div>
- <div class="card"><h3>3. Assignment rules</h3><div class="row"><div><label>Rule name</label><input id="rn"></div><div><label>Match in</label><select id="rf"><option value="Subject">Task subject</option><option value="Dept_Name">Group (Dept_Name)</option></select></div><div><label>Match text</label><input id="rm"></div></div>
- <label>Assign to (tasks go to whoever of these active people has the fewest open tasks)</label><div class="row">${emps.map(e=>`<label style="display:inline-flex;gap:4px;align-items:center;flex:0"><input type="checkbox" class="re" value="${e.id}" style="width:auto"> ${esc(e.name)}${e.active?'':' (inactive)'}</label>`).join('')}</div>
- <button class="b" id="rsv">Add rule</button><table style="margin-top:10px">${rules.map(r=>`<tr><td>${esc(r.name)}</td><td>${esc(r.match_field)} contains “${esc(r.match_value)}”</td><td>${r.employee_ids.map(i=>esc(en[i]||'?')).join(', ')}</td><td>${can?`<button class="b r" data-dr="${r.id}">Delete</button>`:''}</td></tr>`).join('')}</table></div>
- <div class="card"><h3>4. What needs assigning now</h3><button class="b" id="pl">Check tasks</button><div id="plan"></div></div>`);
- $('#ssv').onclick=async()=>{try{await api('assign/settings',{body:{assign_auto:$('#sau').value==='1',assign_minutes:+$('#sam').value}});say('Saved');}catch(e){say(e.message,true)}};
+ const en=Object.fromEntries(emps.map(e=>[e.id,e.name]));const can=me.role!=='executive';const active=emps.filter(e=>e.active);
+ m.insertAdjacentHTML('beforeend',`<div class="card"><h3>Tasks baanto</h3>
+ <p><small>Jis task ka <b>Assign_to khali</b> hai wahi baanta jata hai. Jis task me pehle se naam hai (tumne haath se diya) use portal kabhi nahi chhedta. Group (Dept_Name) kabhi nahi badalta.</small></p>
+ <div id="plan">Check ho raha hai…</div></div>
+ <details class="card" ${emps.length?'':'open'}><summary><b>1. Staff list</b> ${emps.length?'<small>('+emps.length+' log)</small>':'<span class="tag warn">Pehle staff add karo</span>'}</summary>
+ <div class="row" style="margin-top:10px"><button class="b g big" id="eim">Tasks se staff ke naam import karo</button><div><label>Ya haath se naam jodo (jaise Assign_to me likhte ho)</label><input id="en"></div><button class="b" id="ead">Add</button></div><div id="imp"></div>
+ <table>${emps.map(e=>`<tr><td>${esc(e.name)}</td><td><span class="tag ${e.active?'ok':'bad'}">${e.active?'Active':'Inactive'}</span></td><td><input data-al="${e.id}" value="${esc(e.aliases||'')}" placeholder="dusri spelling, comma se alag" ${can?'':'disabled'}></td>
+ <td>${can?`<button class="b l" data-tg="${e.id}">${e.active?'Inactive karo':'Active karo'}</button> <button class="b r" data-de="${e.id}">Hatao</button>`:''}</td></tr>`).join('')}</table></details>
+ <details class="card"><summary><b>2. Rules</b> <small>(${rules.length} rule — kaun sa task kisko)</small></summary>
+ <div class="row" style="margin-top:10px"><div><label>Rule ka naam</label><input id="rn"></div><div><label>Kahan dhundho</label><select id="rf"><option value="Subject">Task subject</option><option value="Dept_Name">Group (Dept_Name)</option></select></div><div><label>Ye likha ho to</label><input id="rm"></div></div>
+ <label>Kisko do (jis ke paas sabse kam open tasks hon use milega)</label><div class="row">${emps.map(e=>`<label style="display:inline-flex;gap:4px;align-items:center;flex:0"><input type="checkbox" class="re" value="${e.id}" style="width:auto"> ${esc(e.name)}${e.active?'':' (inactive)'}</label>`).join('')||'<small>Pehle staff add karo.</small>'}</div>
+ <button class="b" id="rsv">Rule jodo</button><table style="margin-top:10px">${rules.map(r=>`<tr><td>${esc(r.name)}</td><td>${esc(r.match_field)} me “${esc(r.match_value)}”</td><td>${r.employee_ids.map(i=>esc(en[i]||'?')).join(', ')}</td><td>${can?`<button class="b r" data-dr="${r.id}">Delete</button>`:''}</td></tr>`).join('')}</table></details>
+ <details class="card"><summary><b>3. Auto-baantna</b> <small>(${st.assign_auto?'ON':'OFF'})</small></summary><div class="row" style="margin-top:10px"><div><label>Khud baante rahe?</label><select id="sau"><option value="0" ${st.assign_auto?'':'selected'}>Nahi — main button dabaunga</option><option value="1" ${st.assign_auto?'selected':''}>Haan — apne aap</option></select></div>
+ <div><label>Kitne minute me ek baar check</label><input id="sam" type="number" value="${st.assign_minutes}"></div><button class="b" id="ssv">Save</button></div>
+ <p><small>Auto ON me sirf rule se match hone wale khali tasks baante jate hain. Jinke liye rule nahi, wo yahin "Tumhara faisla" me aate hain.</small></p></details>`);
+ $('#ssv').onclick=async()=>{try{await api('assign/settings',{body:{assign_auto:$('#sau').value==='1',assign_minutes:+$('#sam').value}});say('Save ho gaya');}catch(e){say(e.message,true)}};
  $('#ead').onclick=async()=>{try{await api('employees',{body:{name:$('#en').value}});render();}catch(e){say(e.message,true)}};
- $('#eim').onclick=async()=>{try{const l=(await api('employees/from-tasks')).filter(x=>!x.known);const box=$('#imp');
-  if(!l.length){box.innerHTML='<p><small>All names found in Assign_to are already in the roster.</small></p>';return;}
-  box.innerHTML='<p><small>Names found in Assign_to of your tasks (spellings merged by first name). Untick anyone who should not be added.</small></p>'+l.map((x,i)=>`<label style="display:block"><input type="checkbox" class="ik" value="${i}" checked style="width:auto"> <b>${esc(x.name)}</b> <small>${x.count} task(s)${x.aliases.length?' · also: '+esc(x.aliases.join(', ')):''}</small></label>`).join('')+'<button class="b g" id="iok">Add selected</button>';
-  $('#iok').onclick=async()=>{const sel=[...box.querySelectorAll('.ik:checked')].map(c=>l[+c.value]);const r=await api('employees/import',{body:{names:sel}});say(`Added ${r.added}`);render();};}catch(e){say(e.message,true)}};
- m.querySelectorAll('[data-al]').forEach(i=>i.onchange=async()=>{try{await api('employees/'+i.dataset.al+'/aliases',{method:'PUT',body:{aliases:i.value}});say('Saved');}catch(e){say(e.message,true)}});
+ const imp=async()=>{try{const l=(await api('employees/from-tasks')).filter(x=>!x.known);const box=$('#imp');
+  if(!l.length){box.innerHTML='<p><small>Assign_to ke saare naam staff list me pehle se hain.</small></p>';return;}
+  box.innerHTML='<p><small>Tasks ke Assign_to me ye naam mile (milti-julti spelling jod di gayi). Jo staff nahi hai uska tick hata do.</small></p>'+l.map((x,i)=>`<label style="display:block"><input type="checkbox" class="ik" value="${i}" checked style="width:auto"> <b>${esc(x.name)}</b> <small>${x.count} task${x.aliases.length?' · aur spelling: '+esc(x.aliases.join(', ')):''}</small></label>`).join('')+'<button class="b g" id="iok">Chune hue jodo</button>';
+  $('#iok').onclick=async()=>{const sel=[...box.querySelectorAll('.ik:checked')].map(c=>l[+c.value]);const r=await api('employees/import',{body:{names:sel}});say(`${r.added} naam jude`);render();};}catch(e){say(e.message,true)}};
+ $('#eim').onclick=imp;if(!emps.length)imp();
+ m.querySelectorAll('[data-al]').forEach(i=>i.onchange=async()=>{try{await api('employees/'+i.dataset.al+'/aliases',{method:'PUT',body:{aliases:i.value}});say('Save ho gaya');}catch(e){say(e.message,true)}});
  m.querySelectorAll('[data-tg]').forEach(b=>b.onclick=async()=>{await api(`employees/${b.dataset.tg}/toggle`,{method:'POST',body:{}});render();});
- m.querySelectorAll('[data-de]').forEach(b=>b.onclick=async()=>{if(confirm('Remove from roster?')){await api('employees/'+b.dataset.de,{method:'DELETE'});render();}});
- m.querySelectorAll('[data-dr]').forEach(b=>b.onclick=async()=>{if(confirm('Delete rule?')){await api('assign/rules/'+b.dataset.dr,{method:'DELETE'});render();}});
- $('#rsv').onclick=async()=>{try{await api('assign/rules',{body:{name:$('#rn').value,match_field:$('#rf').value,match_value:$('#rm').value,employee_ids:[...m.querySelectorAll('.re:checked')].map(c=>+c.value)}});say('Rule saved');}catch(e){say(e.message,true)}};
- const active=emps.filter(e=>e.active);
- $('#pl').onclick=async()=>{const box=$('#plan');box.textContent='Checking…';
-  try{const p=await api('assign/plan');
-   if(!p.rostered){box.innerHTML='<div class="msg err">Add your staff first (Employees → Import names from tasks).</div>';return;}
-   const apply=async items=>{const r=await api('assign/apply',{body:{items}});const bad=r.results.filter(x=>!x.ok);say(`Assigned ${r.results.length-bad.length}.`+(bad.length?' Problems: '+bad.map(x=>x.error).join(' | '):''),bad.length>0);};
-   box.innerHTML=`<p><small>${p.manual_untouched} open task(s) already have a name in Assign_to and are left untouched.</small></p>
-   <h4>Ready by rule (${p.proposals.length})</h4><table>${p.proposals.map(x=>`<tr><td>${esc(x.subject)}</td><td>${esc(x.rule)}</td><td>→ <b>${esc(x.employee.name)}</b></td></tr>`).join('')||'<tr><td>None</td></tr>'}</table>
-   ${p.proposals.length&&can?'<button class="b g" id="pa">Assign all of these</button>':''}
-   <h4>Need your decision (${p.undecided.length})</h4><table>${p.undecided.map((x,i)=>`<tr><td>${esc(x.subject)}<br><small>${esc(x.dept)} · ${esc(x.reason)}</small></td>
-   <td><select data-u="${i}"><option value="">Choose…</option>${active.map(e=>`<option value="${e.id}">${esc(e.name)}</option>`).join('')}</select></td>
-   <td><input data-k="${i}" placeholder="optional: make a rule for subject containing…"></td><td>${can?`<button class="b" data-ua="${i}">Assign</button>`:''}</td></tr>`).join('')||'<tr><td>None</td></tr>'}</table>
-   <h4>Stuck with inactive staff (${p.reassign.length})</h4><table>${p.reassign.map(x=>`<tr><td>${esc(x.subject)}<br><small>now with ${esc(x.owner)} (inactive)</small></td><td>${x.employee?'→ <b>'+esc(x.employee.name)+'</b>':'<small>'+esc(x.reason||'No rule matches')+'</small>'}</td><td>${x.employee&&can?`<button class="b" data-ra="${x.id}|${x.employee.id}">Reassign</button>`:''}</td></tr>`).join('')||'<tr><td>None</td></tr>'}</table>`;
-   if($('#pa'))$('#pa').onclick=()=>apply(p.proposals.map(x=>({task_id:x.id,employee_id:x.employee.id})));
-   box.querySelectorAll('[data-ua]').forEach(b=>b.onclick=()=>{const i=+b.dataset.ua,e=box.querySelector(`[data-u="${i}"]`).value;if(!e)return alert('Choose an employee');const x=p.undecided[i],k=box.querySelector(`[data-k="${i}"]`).value.trim();
-    apply([{task_id:x.id,employee_id:+e,manual:true,subject:x.subject,dept:x.dept,make_rule_text:k||undefined}]);});
-   box.querySelectorAll('[data-ra]').forEach(b=>b.onclick=()=>{const [t,e]=b.dataset.ra.split('|');apply([{task_id:t,employee_id:+e}]);});
-  }catch(e){box.innerHTML=`<div class="msg err">${esc(e.message)}</div>`;}};},
+ m.querySelectorAll('[data-de]').forEach(b=>b.onclick=async()=>{if(confirm('Staff list se hatana hai?')){await api('employees/'+b.dataset.de,{method:'DELETE'});render();}});
+ m.querySelectorAll('[data-dr]').forEach(b=>b.onclick=async()=>{if(confirm('Rule delete karein?')){await api('assign/rules/'+b.dataset.dr,{method:'DELETE'});render();}});
+ $('#rsv').onclick=async()=>{try{await api('assign/rules',{body:{name:$('#rn').value,match_field:$('#rf').value,match_value:$('#rm').value,employee_ids:[...m.querySelectorAll('.re:checked')].map(c=>+c.value)}});say('Rule ban gaya');}catch(e){say(e.message,true)}};
+ const box=$('#plan');
+ try{const p=await api('assign/plan');
+  if(!p.rostered){box.innerHTML='<div class="msg err">Pehle neeche "1. Staff list" me staff ke naam import karo, phir yahan tasks baant sakoge.</div>';return;}
+  const apply=async items=>{if(!confirm(`${items.length} task baante jayenge (sirf Assign_to likha jayega). Theek hai?`))return;const r=await api('assign/apply',{body:{items}});const bad=r.results.filter(x=>!x.ok);say(`${r.results.length-bad.length} task baante gaye.`+(bad.length?' Problem: '+bad.map(x=>x.error).join(' | '):''),bad.length>0);};
+  box.innerHTML=`<p><span class="tag ok2">${p.manual_untouched} task me pehle se naam hai — chhede nahi jayenge</span></p>
+  <h4>Rule se tayyar (${p.proposals.length})</h4><table>${p.proposals.map(x=>`<tr><td>${esc(x.subject)}</td><td><small>${esc(x.rule)}</small></td><td>→ <b>${esc(x.employee.name)}</b></td></tr>`).join('')||'<tr><td>Koi nahi</td></tr>'}</table>
+  ${p.proposals.length&&can?`<p><button class="b g big" id="pa">Ye ${p.proposals.length} sab baanto</button></p>`:''}
+  <h4>Tumhara faisla chahiye (${p.undecided.length})</h4><table>${p.undecided.map((x,i)=>`<tr><td>${esc(x.subject)}<br><small>${esc(x.dept)} · ${esc(x.reason)}</small></td>
+  <td><select data-u="${i}"><option value="">Kisko…</option>${active.map(e=>`<option value="${e.id}">${esc(e.name)}</option>`).join('')}</select></td>
+  <td><input data-k="${i}" placeholder="chaho to rule bhi banao: subject me ye likha ho…"></td><td>${can?`<button class="b" data-ua="${i}">Do</button>`:''}</td></tr>`).join('')||'<tr><td>Koi nahi</td></tr>'}</table>
+  <h4>Inactive staff ke paas atke (${p.reassign.length})</h4><table>${p.reassign.map(x=>`<tr><td>${esc(x.subject)}<br><small>abhi ${esc(x.owner)} (inactive) ke paas</small></td><td>${x.employee?'→ <b>'+esc(x.employee.name)+'</b>':'<small>'+esc(x.reason||'Koi rule match nahi')+'</small>'}</td><td>${x.employee&&can?`<button class="b" data-ra="${x.id}|${x.employee.id}">Badlo</button>`:''}</td></tr>`).join('')||'<tr><td>Koi nahi</td></tr>'}</table>`;
+  if($('#pa'))$('#pa').onclick=()=>apply(p.proposals.map(x=>({task_id:x.id,employee_id:x.employee.id})));
+  box.querySelectorAll('[data-ua]').forEach(b=>b.onclick=()=>{const i=+b.dataset.ua,e=box.querySelector(`[data-u="${i}"]`).value;if(!e)return alert('Pehle staff chuno');const x=p.undecided[i],k=box.querySelector(`[data-k="${i}"]`).value.trim();
+   apply([{task_id:x.id,employee_id:+e,manual:true,subject:x.subject,dept:x.dept,make_rule_text:k||undefined}]);});
+  box.querySelectorAll('[data-ra]').forEach(b=>b.onclick=()=>{const [t,e]=b.dataset.ra.split('|');apply([{task_id:t,employee_id:+e}]);});
+ }catch(e){box.innerHTML=`<div class="msg err">${esc(e.message)}</div>`;}},
 
 async learn(m){const s=await api('suggestions');
  m.insertAdjacentHTML('beforeend',`<div class="card"><h3>Learning — rules the portal suggests from what you do by hand</h3>
