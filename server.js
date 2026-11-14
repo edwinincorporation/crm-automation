@@ -332,6 +332,8 @@ app.get('/api/gem/list', ANY, async (req, res) => { try { res.json(await GEM.lis
 app.post('/api/gem/options', ANY, (req, res) => res.json(GEM.build(req.body.qty, req.body.rates, req.body.cost)));
 app.post('/api/gem/cfg', MGR, (req, res) => res.json(GEM.setCfg(req.body)));
 app.post('/api/gem/choose', MGR, async (req, res) => { try { res.json(await GEM.choose(String(req.body.id), req.body.rate, req.body.qty, req.user.username)); } catch (e) { res.status(400).json({ error: e.message }); } });
+app.get('/api/mode', ANY, (req, res) => res.json({ dry: require('./lib/mode').isDry() }));
+app.post('/api/mode', ADM, (req, res) => { const on = !!req.body.dry; require('./lib/mode').setDry(on); log(req.user.username, 'mode_change', on ? 'TEST MODE on' : 'LIVE MODE on'); res.json({ dry: on }); });
 app.post('/api/mailmeter/prefix', MGR, (req, res) => { MM.setPrefix(req.body.prefix); res.json({ ok: true }); });
 
 // ---------- Send Letter ----------
@@ -409,7 +411,7 @@ app.get('/api/dashboard', ANY, async (req, res) => {
       open: tasks.length, overdue: tasks.filter((t) => t.Due_Date && t.Due_Date < today).length, byDept,
       letters: new Set(tasks.filter(LT.isLetterTask).map((t) => t.Who_Id?.id).filter(Boolean)).size,
       unassigned: tasks.filter((t) => !String(t.Assign_to || '').trim()).length,
-      dry: process.env.DRY_RUN === '1',
+      dry: require('./lib/mode').isDry(),
       pendingOutbox: db.prepare("SELECT COUNT(*) n FROM outbox WHERE status='pending'").get().n,
       pendingActions: db.prepare("SELECT COUNT(*) n FROM pending_actions WHERE status='pending'").get().n,
       pendingEmails: db.prepare("SELECT COUNT(*) n FROM email_queue WHERE status='pending'").get().n,

@@ -55,9 +55,9 @@ async function render(){
  try{await VIEWS[tab](m);}catch(e){m.insertAdjacentHTML('beforeend',`<div class="msg err">${esc(e.message)}</div>`);}
 }
 const VIEWS={
-async dashboard(m){const d=await api('dashboard');const go=t=>{tab=t;render();};
+async dashboard(m){const d=await api('dashboard');setTimeout(()=>{const b=document.getElementById('modesw');if(b)b.onclick=async()=>{const toLive=d.dry;if(toLive&&!confirm('LIVE karne par PURE portal me asli kaam hoga:\n- Letters sach me jayenge, tasks close honge\n- Mail Meter / WhatsApp / Assignment se Zoho me tasks banenge\n- GeM ka chuna rate Zoho me save hoga\n\nPakka LIVE karna hai?'))return;await api('mode',{body:{dry:!toLive}});render();};},0);const go=t=>{tab=t;render();};
  const row=(n,title,sub,btn,t)=>`<div class="card todo"><b class="n">${n}</b><div class="t"><b>${title}</b><small>${sub}</small></div>${n>0&&btn?`<button class="b g big" data-go="${t}">${btn}</button>`:`<span class="tag ok2">Kuch baaki nahi</span>`}</div>`;
- m.insertAdjacentHTML('beforeend',`<div class="banner ${d.dry?'test':'live'}">${d.dry?'TEST MODE — abhi kuch bhi sach me nahi bhejta / close nahi karta. Sirf dikhata hai.':'LIVE — letters sach me jayenge aur tasks close honge.'}</div>
+ m.insertAdjacentHTML('beforeend',`<div class="banner ${d.dry?'test':'live'}">${d.dry?'TEST MODE — abhi kuch bhi sach me nahi bhejta / close nahi karta. Sirf dikhata hai.':'LIVE — letters sach me jayenge aur tasks close honge.'}${me.role==='admin'?` <button class="b l" id="modesw" style="margin-left:12px">${d.dry?'LIVE karo':'TEST MODE me jao'}</button>`:''}</div>
  <h3 style="margin:0 0 10px">Aaj ka kaam</h3>
  ${row(d.letters,'Letters bhejne baaki','In contacts par letter ka open task hai. Ek click me letter jayega aur task close hoga.','Letters bhejo','letters')}
  ${row(d.unassigned,'Tasks jinka koi staff nahi (Assign_to khali)','Ek click me rule ke hisaab se staff ko baant do.','Tasks baanto','assign')}
