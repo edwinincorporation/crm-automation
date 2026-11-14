@@ -311,6 +311,8 @@ app.post('/api/letters/send', MGR, async (req, res) => {
   const ids = (req.body.ids || []).slice(0, 50); if (!ids.length) return res.status(400).json({ error: 'Select at least one contact' });
   try { res.json(await LT.send(ids, req.user.username)); } catch (e) { res.status(502).json({ error: e.message }); }
 });
+app.get('/api/letters/config', MGR, (req, res) => res.json(LT.config()));
+app.post('/api/letters/config', auth(['admin']), (req, res) => { LT.saveConfig(req.body || {}); log(req.user.username, 'letter_config', 'updated'); res.json(LT.config()); });
 app.get('/api/letters/log', ANY, (req, res) => res.json(db.prepare('SELECT * FROM letter_log ORDER BY id DESC LIMIT 100').all()));
 
 // ---------- Employees, assignment rules, learning ----------

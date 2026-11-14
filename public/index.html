@@ -165,17 +165,20 @@ async pending(m){const p=await api('pending');
 async letters(m){const can=me.role!=='executive';
  m.insertAdjacentHTML('beforeend',`<div class="card"><h3>Send Letter</h3><p><small>Search the contact, tick it and press <b>Send Letter</b>. The letter goes to the candidate and that contact's open “letter” tasks are closed — only after the letter was sent.</small></p>
  <div class="row"><div><label>Search contact (name or email)</label><input id="lq" placeholder="type 2+ letters, press Enter"></div><button class="b" id="lgo">Search</button></div>
- <div id="lres"></div></div><div class="card"><h3>Recent letters</h3><div id="llog"></div></div>`);
+ <div id="lres"></div></div>
+ ${me.role==='admin'?`<div class="card"><h3>Letter Manager settings</h3><div class="row"><div><label>Address</label><input id="lcb"></div><div><label>API key <small id="lcs"></small></label><input id="lck" type="password" placeholder="paste once; leave empty to keep"></div><button class="b" id="lcsv">Save</button></div></div>`:''}
+ <div class="card"><h3>Recent letters</h3><div id="llog"></div></div>`);
  const sel=new Map();
  const draw=rows=>{$('#lres').innerHTML=`<table>${rows.map(c=>`<tr><td style="width:30px"><input type="checkbox" class="lc" value="${esc(c.id)}" ${sel.has(c.id)?'checked':''} style="width:auto"></td><td>${esc(c.name)}<br><small>${esc(c.email)}</small></td></tr>`).join('')||'<tr><td>No contacts found</td></tr>'}</table>
   ${can?'<button class="b l" id="lpv">Preview</button> <button class="b g" id="lsd">Send Letter</button>':''}<div id="lout"></div>`;
   $('#lres').querySelectorAll('.lc').forEach(c=>c.onchange=()=>{c.checked?sel.set(c.value,rows.find(r=>r.id===c.value).name):sel.delete(c.value);});
   if(can){$('#lpv').onclick=async()=>{try{if(!sel.size)return alert('Select a contact');const p=await api('letters/preview',{body:{ids:[...sel.keys()]}});
-    $('#lout').innerHTML=(p.dry?'<div class="msg">Safe mode (DRY_RUN): nothing will be sent or closed.</div>':'')+p.contacts.map(c=>`<p><b>${esc(c.name)}</b> <small>${esc(c.email)}</small><br>${c.tasks.length?'Will close: '+c.tasks.map(t=>esc(t.subject)).join(' · '):'<small>No open letter task — only the letter will go.</small>'}</p>`).join('');}catch(e){say(e.message,true)}};
+    $('#lout').innerHTML=(p.dry?'<div class="msg">Safe mode (DRY_RUN): nothing will be sent or closed.</div>':'')+p.contacts.map(c=>`<p><b>${esc(c.name)}</b> <small>${esc(c.email)}</small><br>${c.problem?'<span class="tag bad">Will NOT send</span> '+esc(c.problem):'Template: <b>'+esc(c.template)+'</b><br>Will close: '+c.tasks.map(t=>esc(t.subject)).join(' · ')}</p>`).join('');}catch(e){say(e.message,true)}};
    $('#lsd').onclick=async()=>{try{if(!sel.size)return alert('Select a contact');if(!confirm('Send letter to '+sel.size+' contact(s) and close their letter tasks?'))return;const r=await api('letters/send',{body:{ids:[...sel.keys()]}});
     $('#lout').innerHTML=r.results.map(x=>`<p>${x.error?'<span class="tag bad">Failed</span>':'<span class="tag ok">'+(x.dry?'Dry run':'Sent')+'</span>'} <b>${esc(x.name)}</b> ${x.error?esc(x.error):(x.dry?'would close '+(x.would_close||[]).length+' task(s)':'closed '+x.closed.length+' task(s)')}</p>`).join('');sel.clear();loadLog();}catch(e){say(e.message,true)}};}};
  const search=async()=>{try{draw(await api('letters/contacts?q='+encodeURIComponent($('#lq').value)));}catch(e){say(e.message,true)}};
  const loadLog=async()=>{const l=await api('letters/log');$('#llog').innerHTML=`<table>${l.map(x=>`<tr><td>${esc(x.at)}</td><td>${esc(x.contact_name)}</td><td>${esc(x.result)}</td><td><small>${esc(x.closed||'')}</small></td></tr>`).join('')||'<tr><td>None yet</td></tr>'}</table>`;};
+ if(me.role==='admin'){api('letters/config').then(c=>{$('#lcb').value=c.base;$('#lcs').textContent=c.key_set?'(saved)':'(not set)';});$('#lcsv').onclick=async()=>{try{const c=await api('letters/config',{body:{base:$('#lcb').value,key:$('#lck').value}});$('#lck').value='';$('#lcs').textContent=c.key_set?'(saved)':'(not set)';say('Saved');}catch(e){say(e.message,true)}};}
  $('#lgo').onclick=search;$('#lq').onkeydown=e=>{if(e.key==='Enter')search();};search();loadLog();},
 async assign(m){const [emps,rules,st]=await Promise.all([api('employees'),api('assign/rules'),api('assign/settings')]);
  const en=Object.fromEntries(emps.map(e=>[e.id,e.name]));const can=me.role!=='executive';
