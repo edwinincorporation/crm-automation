@@ -10,6 +10,7 @@ const AS = require('./lib/assign');
 const LT = require('./lib/letters');
 const MM = require('./lib/mailmeter');
 const WA = require('./lib/whatsapp');
+const GEM = require('./lib/gem');
 
 const app = express();
 app.use(express.json({ limit: '2mb' }));
@@ -327,6 +328,10 @@ app.get('/api/whatsapp/brands', ANY, (req, res) => res.json(WA.brands()));
 app.post('/api/whatsapp/brands', MGR, (req, res) => res.json(WA.setBrands(req.body.map)));
 app.get('/api/whatsapp/auto', ANY, (req, res) => res.json(WA.autoGet()));
 app.post('/api/whatsapp/auto', MGR, (req, res) => { try { res.json(WA.autoSet(String(req.body.mode), req.body.hour)); } catch (e) { res.status(400).json({ error: e.message }); } });
+app.get('/api/gem/list', ANY, async (req, res) => { try { res.json(await GEM.list()); } catch (e) { res.status(502).json({ error: e.message }); } });
+app.post('/api/gem/options', ANY, (req, res) => res.json(GEM.build(req.body.qty, req.body.rates, req.body.cost)));
+app.post('/api/gem/cfg', MGR, (req, res) => res.json(GEM.setCfg(req.body)));
+app.post('/api/gem/choose', MGR, async (req, res) => { try { res.json(await GEM.choose(String(req.body.id), req.body.rate, req.body.qty, req.user.username)); } catch (e) { res.status(400).json({ error: e.message }); } });
 app.post('/api/mailmeter/prefix', MGR, (req, res) => { MM.setPrefix(req.body.prefix); res.json({ ok: true }); });
 
 // ---------- Send Letter ----------
