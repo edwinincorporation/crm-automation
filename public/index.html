@@ -37,7 +37,7 @@ let me=null,tab='dashboard',flash=null;
 async function api(p,o={}){const r=await fetch('/api/'+p,{method:o.method||(o.body?'POST':'GET'),headers:{'Content-Type':'application/json'},body:o.body?JSON.stringify(o.body):undefined});
  const j=await r.json().catch(()=>({}));if(r.status===401&&me){me=null;render();}if(!r.ok)throw new Error(j.error||r.status);return j;}
 function say(m,err){flash={m,err};render();}
-const TABS=[['dashboard','Aaj ka kaam'],['closer','Task Closer'],['letters','Send Letter'],['mailmeter','Mail Meter Check'],['outbox','Outbox / Approvals'],['rules','Action Rules'],['macros','Macros'],['automations','Automations'],['pending','Auto Approvals'],['assign','Task Assignment'],['learn','Learning'],['workflows','Workflow Analysis'],['emails','Email Analysis'],['activity','Activity Log'],['users','Users']];
+const TABS=[['dashboard','Aaj ka kaam'],['closer','Task Closer'],['letters','Send Letter'],['mailmeter','Mail Meter Check'],['whatsapp','WhatsApp Check'],['outbox','Outbox / Approvals'],['rules','Action Rules'],['macros','Macros'],['automations','Automations'],['pending','Auto Approvals'],['assign','Task Assignment'],['learn','Learning'],['workflows','Workflow Analysis'],['emails','Email Analysis'],['activity','Activity Log'],['users','Users']];
 
 async function render(){
  const app=$('#app');
@@ -223,7 +223,35 @@ async letters(m){const can=me.role!=='executive';
  if(me.role==='admin'){api('letters/config').then(c=>{$('#lcb').value=c.base;$('#lcs').textContent=c.key_set?'(saved)':'(not set)';});$('#lcsv').onclick=async()=>{try{const c=await api('letters/config',{body:{base:$('#lcb').value,key:$('#lck').value}});$('#lck').value='';$('#lcs').textContent=c.key_set?'(saved)':'(not set)';say('Saved');}catch(e){say(e.message,true)}};}
  $('#sgo').onclick=search;$('#sq').onkeydown=e=>{if(e.key==='Enter')search();};
  Q=await api('letters/templates').then(t=>({templates:t,rows:[]})).catch(()=>Q);loadQ();loadLog();loadMap();},
-async mailmeter(m){const can=me.role!=='executive';
+async whatsapp(m){const can=me.role!=='executive';
+ m.insertAdjacentHTML('beforeend',`<div class="card"><h3>WhatsApp Check</h3><p><small>Jinhone hamare WhatsApp number par <b>message bheja</b> aur jinka Zoho me task abhi nahi hai — wo brand ke hisab se yahan aate hain. Tick karke "Tasks banao" dabao. "Ok / Thanks" jaise chhote message pehle se untick hote hain.</small></p>
+ <div class="row"><div><label>Pichhle kitne din</label><select id="wd"><option value="1">1 din</option><option value="3" selected>3 din</option><option value="7">7 din</option><option value="14">14 din</option></select></div><button class="b" id="wgo">Check karo</button></div>
+ ${can?`<details id="wbr"><summary><small>Brand ke naam / Dept (optional)</small></summary><div id="wbrb"></div><button class="b l" id="wbsv">Save</button></details>
+ <details><summary><b>Roz apne aap chalao (optional)</b></summary><p><small>Pehle kuch din khud "Check karo" chala kar dekho. Band rakhoge to kuch apne aap nahi hoga.</small></p>
+ <div class="row"><div><label>Kya kare</label><select id="waum"><option value="0">Band (khud chalao)</option><option value="list">Roz sirf list taiyaar kare</option><option value="create">List + task bhi bana de</option></select></div>
+ <div><label>Kitne baje (IST)</label><select id="wauh">${Array.from({length:24},(_,i)=>`<option value="${i}">${i}:00</option>`).join('')}</select></div><button class="b l" id="wausv">Save</button></div><div id="waus"></div></details>`:''}
+ <div id="wres">Check ho raha hai…</div></div>`);
+ let D=null,B={};
+ const auShow=a=>{if(!$('#waum'))return;$('#waum').value=a.mode;$('#wauh').value=a.hour;$('#waus').innerHTML=(a.mode==='create'&&a.dry?'<div class="msg">TEST MODE chalu hai, isliye task nahi banenge.</div>':'')+(a.last?`<small>Pichhli baar: ${esc(a.last.date)} — ${a.last.error?esc(a.last.error):a.last.todo+' ko task chahiye, '+a.last.created+' bane'}</small>`:'<small>Abhi tak chala nahi.</small>');};
+ if(can){api('whatsapp/auto').then(auShow).catch(()=>{});
+  $('#wausv').onclick=async()=>{const md=$('#waum').value;if(md==='create'&&!confirm('Ye roz apne aap Zoho me task banayega (jinka pehle se nahi hai). Pakka chalu karein?'))return;try{auShow(await api('whatsapp/auto',{body:{mode:md,hour:$('#wauh').value}}));}catch(e){say(e.message,true)}};
+  $('#wbsv').onclick=async()=>{const map={};m.querySelectorAll('.wbr').forEach(r=>{map[r.dataset.a]={label:r.querySelector('.wl').value,dept:r.querySelector('.wd2').value};});B=await api('whatsapp/brands',{body:{map}});say('Save ho gaya');go();};}
+ const drawBr=names=>{if(!$('#wbrb'))return;$('#wbrb').innerHTML='<table><tr><th>Interakt account</th><th>Brand ka naam</th><th>Task ka Dept (khali = kuch nahi)</th></tr>'+names.map(a=>`<tr class="wbr" data-a="${esc(a)}"><td>${esc(a)}</td><td><input class="wl" value="${esc((B[a]||{}).label||'')}" placeholder="${esc(a)}"></td><td><input class="wd2" value="${esc((B[a]||{}).dept||'')}"></td></tr>`).join('')+'</table>';};
+ const draw=()=>{const todo=D.rows.filter(r=>!r.handled&&r.contact&&!r.problem),other=D.rows.filter(r=>r.handled||!r.contact||r.problem);
+  const groups={};todo.forEach(r=>(groups[r.brand]=groups[r.brand]||[]).push(r));
+  drawBr([...new Set(D.rows.map(r=>r.account))]);
+  $('#wres').innerHTML=(D.dry?'<div class="msg">TEST MODE: tasks sach me nahi banenge, sirf dikhega.</div>':'')+`<h4>Task banana baaki (${todo.length})</h4>`+
+  (todo.length?Object.keys(groups).map(b=>`<h4>${esc(b)} <small>(${groups[b].length})</small></h4><table><tr><th></th><th>Insaan</th><th>Message</th><th>Kab</th></tr>${groups[b].map(r=>`<tr><td><input type="checkbox" class="wk" value="${esc(r.key)}" ${r.ack?'':'checked'} style="width:auto"></td><td><b>${esc(r.contact.name||'')}</b><br><small>+${esc(r.mobile)}${r.also.length?' · '+esc(r.also.join(', ')):''}</small></td><td>${esc(r.text.slice(0,140))}${r.ack?' <span class="tag warn">chhota</span>':''}${r.messages>1?'<br><small>'+r.messages+' message</small>':''}</td><td><small>${esc(new Date(r.at).toLocaleString('en-IN'))}</small></td></tr>`).join('')}</table>`).join('')+
+  (can?'<p><button class="b g big" id="wmk">Chune hue ke Tasks banao</button> <button class="b l" id="wsk">Inhe chhod do (task nahi chahiye)</button></p>':''):'<p>Koi nahi — sab ke task pehle se hain.</p>')+'<div id="wout"></div>'+
+  `<details><summary><b>Pehle se nipte / Contact nahi mila (${other.length})</b></summary><table>${other.map(r=>`<tr><td>${esc(r.brand)}</td><td>+${esc(r.mobile)}</td><td>${esc(r.text.slice(0,60))}</td><td><small>${esc(r.handled||r.problem)}</small></td></tr>`).join('')}</table></details>`;
+  if(!todo.length||!can)return;
+  const keys=()=>[...m.querySelectorAll('.wk:checked')].map(c=>c.value);
+  $('#wmk').onclick=async()=>{const k=keys();if(!k.length)return alert('Pehle koi tick karo');if(!confirm(k.length+' task Zoho me banenge'+(D.dry?' (TEST MODE: asal me nahi)':'')+'. Theek hai?'))return;
+   try{const r=await api('whatsapp/create',{body:{keys:k}});const bad=r.results.filter(x=>!x.ok);$('#wout').innerHTML=r.results.map(x=>`<p>${x.ok?'<span class="tag ok2">'+(x.dry?'Test':'Ban gaya')+'</span>':'<span class="tag no">Nahi bana</span>'} ${esc(x.subject||x.error||'')}</p>`).join('');if(!r.dry&&!bad.length)go();}catch(e){say(e.message,true)}};
+  $('#wsk').onclick=async()=>{const k=keys();if(!k.length)return;if(!confirm(k.length+' entry list se hata dein (task nahi banega)?'))return;await api('whatsapp/skip',{body:{keys:k}});go();};};
+ const go=async()=>{$('#wres').textContent='Check ho raha hai…';try{B=await api('whatsapp/brands').catch(()=>({}));D=await api('whatsapp/check?days='+$('#wd').value);draw();}catch(e){$('#wres').innerHTML=`<div class="msg err">${esc(e.message)}</div>`;}};
+ $('#wgo').onclick=go;go();},
+ async mailmeter(m){const can=me.role!=='executive';
  m.insertAdjacentHTML('beforeend',`<div class="card"><h3>Mail Meter Check</h3><p><small>Delhi Crest Mail ke campaigns me jisne <b>reply</b> kiya ya <b>link click</b> kiya, aur Zoho me jiska task abhi nahi hai — wo yahan aate hain. Tick karke "Tasks banao" dabao. Zoho me kuch bhi bina tumhare click ke nahi banta.</small></p>
  <div class="row"><div><label>Pichhle kitne din</label><select id="md"><option value="3">3 din</option><option value="7" selected>7 din</option><option value="14">14 din</option><option value="30">30 din</option></select></div><button class="b" id="mgo">Check karo</button></div>
  ${me.role!=='executive'?`<details><summary><small>Task subject ka shuru</small></summary><div class="row"><div><input id="mpx"></div><button class="b l" id="mpsv">Save</button></div></details>`:''}

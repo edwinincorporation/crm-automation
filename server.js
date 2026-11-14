@@ -9,6 +9,7 @@ const E = require('./lib/engine');
 const AS = require('./lib/assign');
 const LT = require('./lib/letters');
 const MM = require('./lib/mailmeter');
+const WA = require('./lib/whatsapp');
 
 const app = express();
 app.use(express.json({ limit: '2mb' }));
@@ -319,6 +320,13 @@ app.post('/api/mailmeter/skip', MGR, (req, res) => res.json(MM.skip((req.body.ke
 app.get('/api/mailmeter/auto', ANY, (req, res) => res.json(MM.autoGet()));
 app.post('/api/mailmeter/auto', MGR, (req, res) => { try { res.json(MM.autoSet(String(req.body.mode), req.body.hour)); } catch (e) { res.status(400).json({ error: e.message }); } });
 app.post('/api/mailmeter/auto-now', MGR, async (req, res) => { try { res.json(await MM.autoRun(true) || {}); } catch (e) { res.status(502).json({ error: e.message }); } });
+app.get('/api/whatsapp/check', ANY, async (req, res) => { try { res.json(await WA.check(req.query.days)); } catch (e) { res.status(502).json({ error: e.message }); } });
+app.post('/api/whatsapp/create', MGR, async (req, res) => { try { res.json(await WA.create((req.body.keys || []).slice(0, 100), req.user.username)); } catch (e) { res.status(502).json({ error: e.message }); } });
+app.post('/api/whatsapp/skip', MGR, (req, res) => res.json(WA.skip((req.body.keys || []).slice(0, 300), req.user.username)));
+app.get('/api/whatsapp/brands', ANY, (req, res) => res.json(WA.brands()));
+app.post('/api/whatsapp/brands', MGR, (req, res) => res.json(WA.setBrands(req.body.map)));
+app.get('/api/whatsapp/auto', ANY, (req, res) => res.json(WA.autoGet()));
+app.post('/api/whatsapp/auto', MGR, (req, res) => { try { res.json(WA.autoSet(String(req.body.mode), req.body.hour)); } catch (e) { res.status(400).json({ error: e.message }); } });
 app.post('/api/mailmeter/prefix', MGR, (req, res) => { MM.setPrefix(req.body.prefix); res.json({ ok: true }); });
 
 // ---------- Send Letter ----------
@@ -414,4 +422,4 @@ app.get('/api/activity', MGR, (req, res) => res.json(db.prepare('SELECT * FROM a
 
 app.use(express.static(path.join(__dirname, 'public')));
 const port = process.env.PORT || 3000;
-app.listen(port, () => { console.log(`CRM Management portal on :${port} ${zoho.DEMO ? '(DEMO mode)' : ''}`); if (process.env.SCHEDULER !== '0') E.startScheduler(); setInterval(() => MM.autoRun().catch(() => {}), 60000); setInterval(() => AS.autoAssign().catch((e) => log('auto-assign', 'assign_error', e.message)), 60000); });
+app.listen(port, () => { console.log(`CRM Management portal on :${port} ${zoho.DEMO ? '(DEMO mode)' : ''}`); if (process.env.SCHEDULER !== '0') E.startScheduler(); setInterval(() => MM.autoRun().catch(() => {}), 60000); setInterval(() => WA.autoRun().catch(() => {}), 60000); setInterval(() => AS.autoAssign().catch((e) => log('auto-assign', 'assign_error', e.message)), 60000); });
