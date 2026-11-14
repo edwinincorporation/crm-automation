@@ -23,6 +23,10 @@ button.b.g{background:#15803d}button.b.r{background:#b91c1c}button.b.l{backgroun
 .tag.w{background:#fef3c7}.tag.ok{background:#dcfce7}.tag.bad{background:#fee2e2}
 #login{max-width:340px;margin:12vh auto}pre{white-space:pre-wrap;margin:0;font:inherit}
 .msg{padding:9px 12px;border-radius:6px;margin-bottom:10px;background:#e0f2fe}.msg.err{background:#fee2e2}
+button.big{font-size:15px;padding:10px 18px}
+.todo{display:flex;gap:14px;align-items:center;flex-wrap:wrap}.todo b.n{font-size:34px;min-width:56px}.todo .t{flex:1;min-width:200px}.todo small{color:#64748b;display:block}
+.tag.ok2{background:#dcfce7;color:#166534}.tag.warn{background:#fef3c7;color:#92400e}.tag.no{background:#fee2e2;color:#991b1b}
+.banner{padding:8px 12px;border-radius:6px;margin-bottom:12px;font-weight:600}.banner.test{background:#fef3c7;color:#92400e}.banner.live{background:#dcfce7;color:#166534}
 label{font-size:12px;color:#64748b;display:block;margin-bottom:2px}
 </style></head><body>
 <div id="app"></div>
@@ -33,7 +37,7 @@ let me=null,tab='dashboard',flash=null;
 async function api(p,o={}){const r=await fetch('/api/'+p,{method:o.method||(o.body?'POST':'GET'),headers:{'Content-Type':'application/json'},body:o.body?JSON.stringify(o.body):undefined});
  const j=await r.json().catch(()=>({}));if(r.status===401&&me){me=null;render();}if(!r.ok)throw new Error(j.error||r.status);return j;}
 function say(m,err){flash={m,err};render();}
-const TABS=[['dashboard','Dashboard'],['closer','Task Closer'],['letters','Send Letter'],['outbox','Outbox / Approvals'],['rules','Action Rules'],['macros','Macros'],['automations','Automations'],['pending','Auto Approvals'],['assign','Task Assignment'],['learn','Learning'],['workflows','Workflow Analysis'],['emails','Email Analysis'],['activity','Activity Log'],['users','Users']];
+const TABS=[['dashboard','Aaj ka kaam'],['closer','Task Closer'],['letters','Send Letter'],['outbox','Outbox / Approvals'],['rules','Action Rules'],['macros','Macros'],['automations','Automations'],['pending','Auto Approvals'],['assign','Task Assignment'],['learn','Learning'],['workflows','Workflow Analysis'],['emails','Email Analysis'],['activity','Activity Log'],['users','Users']];
 
 async function render(){
  const app=$('#app');
@@ -51,9 +55,18 @@ async function render(){
  try{await VIEWS[tab](m);}catch(e){m.insertAdjacentHTML('beforeend',`<div class="msg err">${esc(e.message)}</div>`);}
 }
 const VIEWS={
-async dashboard(m){const d=await api('dashboard');
- m.insertAdjacentHTML('beforeend',`<div class="grid"><div class="card stat"><b>${d.open}</b>Open tasks</div><div class="card stat"><b>${d.overdue}</b>Overdue</div><div class="card stat"><b>${d.pendingOutbox}</b>Messages awaiting approval</div><div class="card stat"><b>${d.pendingActions}</b>Automation actions to approve</div><div class="card stat"><b>${d.pendingEmails}</b>Emails to review</div></div>
- <div class="card"><h3>Open tasks by group</h3><table>${Object.entries(d.byDept).sort((a,b)=>b[1]-a[1]).map(([k,v])=>`<tr><td>${esc(k)}</td><td>${v}</td></tr>`).join('')}</table></div>`);},
+async dashboard(m){const d=await api('dashboard');const go=t=>{tab=t;render();};
+ const row=(n,title,sub,btn,t)=>`<div class="card todo"><b class="n">${n}</b><div class="t"><b>${title}</b><small>${sub}</small></div>${n>0&&btn?`<button class="b g big" data-go="${t}">${btn}</button>`:`<span class="tag ok2">Kuch baaki nahi</span>`}</div>`;
+ m.insertAdjacentHTML('beforeend',`<div class="banner ${d.dry?'test':'live'}">${d.dry?'TEST MODE — abhi kuch bhi sach me nahi bhejta / close nahi karta. Sirf dikhata hai.':'LIVE — letters sach me jayenge aur tasks close honge.'}</div>
+ <h3 style="margin:0 0 10px">Aaj ka kaam</h3>
+ ${row(d.letters,'Letters bhejne baaki','In contacts par letter ka open task hai. Ek click me letter jayega aur task close hoga.','Letters bhejo','letters')}
+ ${row(d.unassigned,'Tasks jinka koi staff nahi (Assign_to khali)','Ek click me rule ke hisaab se staff ko baant do.','Tasks baanto','assign')}
+ ${row(d.pendingOutbox,'Messages approval ke intezaar me','Email / letter / WhatsApp jo tumhari haan ke bina nahi jayenge.','Dekho aur approve karo','outbox')}
+ ${row(d.pendingActions,'Automation ke kaam approve karne hain','Automation ne jo karna chaha, tumhari haan chahiye.','Dekho','pending')}
+ ${row(d.pendingEmails,'Emails review karne hain','Emails se CRM me kya update hoga, check karo.','Dekho','emails')}
+ <div class="grid"><div class="card stat"><b>${d.open}</b>Kul open tasks</div><div class="card stat"><b>${d.overdue}</b>Der ho chuki (overdue)</div></div>
+ <details class="card"><summary><b>Group ke hisaab se open tasks</b></summary><table>${Object.entries(d.byDept).sort((a,b)=>b[1]-a[1]).map(([k,v])=>`<tr><td>${esc(k)}</td><td>${v}</td></tr>`).join('')}</table></details>`);
+ m.querySelectorAll('[data-go]').forEach(b=>b.onclick=()=>go(b.dataset.go));},
 
 async closer(m){
  m.insertAdjacentHTML('beforeend',`<div class="card"><div class="row"><div><label>Search</label><input id="q"></div><div><label>Group (Dept_Name)</label><input id="dp"></div>
@@ -163,23 +176,40 @@ async pending(m){const p=await api('pending');
  m.querySelectorAll('[data-r]').forEach(b=>b.onclick=async()=>{await api(`pending/${b.dataset.r}/reject`,{method:'POST',body:{}});render();});},
 
 async letters(m){const can=me.role!=='executive';
- m.insertAdjacentHTML('beforeend',`<div class="card"><h3>Send Letter</h3><p><small>Search the contact, tick it and press <b>Send Letter</b>. The letter goes to the candidate and that contact's open “letter” tasks are closed — only after the letter was sent.</small></p>
- <div class="row"><div><label>Search contact (name or email)</label><input id="lq" placeholder="type 2+ letters, press Enter"></div><button class="b" id="lgo">Search</button></div>
- <div id="lres"></div></div>
- ${me.role==='admin'?`<div class="card"><h3>Letter Manager settings</h3><div class="row"><div><label>Address</label><input id="lcb"></div><div><label>API key <small id="lcs"></small></label><input id="lck" type="password" placeholder="paste once; leave empty to keep"></div><button class="b" id="lcsv">Save</button></div></div>`:''}
- <div class="card"><h3>Recent letters</h3><div id="llog"></div></div>`);
- const sel=new Map();
- const draw=rows=>{$('#lres').innerHTML=`<table>${rows.map(c=>`<tr><td style="width:30px"><input type="checkbox" class="lc" value="${esc(c.id)}" ${sel.has(c.id)?'checked':''} style="width:auto"></td><td>${esc(c.name)}<br><small>${esc(c.email)}</small></td></tr>`).join('')||'<tr><td>No contacts found</td></tr>'}</table>
-  ${can?'<button class="b l" id="lpv">Preview</button> <button class="b g" id="lsd">Send Letter</button>':''}<div id="lout"></div>`;
-  $('#lres').querySelectorAll('.lc').forEach(c=>c.onchange=()=>{c.checked?sel.set(c.value,rows.find(r=>r.id===c.value).name):sel.delete(c.value);});
-  if(can){$('#lpv').onclick=async()=>{try{if(!sel.size)return alert('Select a contact');const p=await api('letters/preview',{body:{ids:[...sel.keys()]}});
-    $('#lout').innerHTML=(p.dry?'<div class="msg">Safe mode (DRY_RUN): nothing will be sent or closed.</div>':'')+p.contacts.map(c=>`<p><b>${esc(c.name)}</b> <small>${esc(c.email)}</small><br>${c.problem?'<span class="tag bad">Will NOT send</span> '+esc(c.problem):'Template: <b>'+esc(c.template)+'</b><br>Will close: '+c.tasks.map(t=>esc(t.subject)).join(' · ')}</p>`).join('');}catch(e){say(e.message,true)}};
-   $('#lsd').onclick=async()=>{try{if(!sel.size)return alert('Select a contact');if(!confirm('Send letter to '+sel.size+' contact(s) and close their letter tasks?'))return;const r=await api('letters/send',{body:{ids:[...sel.keys()]}});
-    $('#lout').innerHTML=r.results.map(x=>`<p>${x.error?'<span class="tag bad">Failed</span>':'<span class="tag ok">'+(x.dry?'Dry run':'Sent')+'</span>'} <b>${esc(x.name)}</b> ${x.error?esc(x.error):(x.dry?'would close '+(x.would_close||[]).length+' task(s)':'closed '+x.closed.length+' task(s)')}</p>`).join('');sel.clear();loadLog();}catch(e){say(e.message,true)}};}};
- const search=async()=>{try{draw(await api('letters/contacts?q='+encodeURIComponent($('#lq').value)));}catch(e){say(e.message,true)}};
- const loadLog=async()=>{const l=await api('letters/log');$('#llog').innerHTML=`<table>${l.map(x=>`<tr><td>${esc(x.at)}</td><td>${esc(x.contact_name)}</td><td>${esc(x.result)}</td><td><small>${esc(x.closed||'')}</small></td></tr>`).join('')||'<tr><td>None yet</td></tr>'}</table>`;};
+ m.insertAdjacentHTML('beforeend',`<div id="lban"></div><div class="card"><h3>Letters bhejo</h3><p><small>Jin contacts par letter ka task open hai wo neeche apne aap aa gaye. Template dekho (ya list se badlo), tick karo aur <b>Send Letter</b> dabao. Letter jaane ke baad hi task close hota hai.</small></p><div id="lq">Load ho raha hai…</div></div>
+ <div class="card"><h3>Kisi aur contact ko letter bhejna hai?</h3><div class="row"><div><label>Naam ya email se dhundho</label><input id="sq" placeholder="kam se kam 2 akshar, Enter dabao"></div><button class="b" id="sgo">Dhundho</button></div><div id="sres"></div></div>
+ ${me.role==='admin'?`<details class="card"><summary><b>Letter Manager settings</b></summary><div class="row"><div><label>Address</label><input id="lcb"></div><div><label>API key <small id="lcs"></small></label><input id="lck" type="password" placeholder="ek baar paste karo; khali = jaisa hai waisa"></div><button class="b" id="lcsv">Save</button></div></details>`:''}
+ <div class="card"><h3>Pichhle letters</h3><div id="llog"></div></div>`);
+ let Q={templates:[],rows:[]};const sel=new Map(); // id -> templateKey
+ const tplSel=(id,cur)=>`<select class="lt" data-id="${esc(id)}"><option value="">— template chuno —</option>${Q.templates.map(t=>`<option value="${esc(t.key)}" ${String(t.key)===String(cur)?'selected':''}>${esc(t.name)}</option>`).join('')}</select>`;
+ const status=r=>!r.email?'<span class="tag no">Email nahi hai</span>':!r.templateKey?'<span class="tag warn">Template chuno</span>':'<span class="tag ok2">Ready</span>';
+ const drawQ=()=>{const rows=Q.rows;$('#lban').innerHTML=Q.dry?'<div class="banner test">TEST MODE — kuch bhi sach me nahi jayega, sirf dikhayega.</div>':'<div class="banner live">LIVE — letter sach me jayega.</div>';
+  $('#lq').innerHTML=rows.length?`<table><tr><th><input type="checkbox" id="lall" style="width:auto"></th><th>Contact</th><th>Template</th><th>Close honge</th><th></th></tr>
+  ${rows.map(r=>`<tr data-r="${esc(r.id)}"><td><input type="checkbox" class="lc" value="${esc(r.id)}" style="width:auto" ${r.email&&r.templateKey?'checked':''}></td><td><b>${esc(r.name)}</b><br><small>${esc(r.email)}</small></td><td>${tplSel(r.id,r.templateKey)}</td><td><small>${r.tasks.map(t=>esc(t.subject)).join('<br>')}</small></td><td class="st">${status(r)}</td></tr>`).join('')}</table>
+  ${can?'<p><button class="b l big" id="lpv">Pehle dekho (Preview)</button> <button class="b g big" id="lsd">Send Letter</button></p>':''}<div id="lout"></div>`:'<p>Abhi kisi contact par letter ka open task nahi hai. Neeche se kisi bhi contact ko dhundh ke letter bhej sakte ho.</p>';
+  if(!rows.length)return;
+  m.querySelectorAll('#lq .lt').forEach(x=>x.onchange=()=>{const r=Q.rows.find(r=>r.id===x.dataset.id);r.templateKey=x.value;x.closest('tr').querySelector('.st').innerHTML=status(r);x.closest('tr').querySelector('.lc').checked=!!(x.value&&r.email);});
+  $('#lall').onchange=e=>m.querySelectorAll('#lq .lc').forEach(c=>c.checked=e.target.checked);
+  if(can){const items=()=>[...m.querySelectorAll('#lq .lc:checked')].map(c=>({id:c.value,templateKey:Q.rows.find(r=>r.id===c.value).templateKey}));
+   $('#lpv').onclick=()=>doPreview(items());$('#lsd').onclick=()=>doSend(items(),true);}};
+ const showPrev=p=>(p.dry?'<div class="msg">TEST MODE: kuch bhi bheja ya close nahi hoga.</div>':'')+p.contacts.map(c=>`<p><b>${esc(c.name)}</b> <small>${esc(c.email)}</small><br>${c.problem?'<span class="tag no">Nahi jayega</span> '+esc(c.problem):'<span class="tag ok2">Jayega</span> Template: <b>'+esc(c.template)+'</b>'+(c.tasks.length?'<br><small>Close honge: '+c.tasks.map(t=>esc(t.subject)).join(' · ')+'</small>':'<br><small>(Is contact par koi letter task nahi — sirf letter jayega)</small>')}</p>`).join('');
+ const doPreview=async items=>{try{if(!items.length)return alert('Pehle koi contact tick karo');$('#lout').innerHTML=showPrev(await api('letters/preview',{body:{items}}));}catch(e){say(e.message,true)}};
+ const doSend=async(items,fromQ)=>{try{if(!items.length)return alert('Pehle koi contact tick karo');
+  const p=await api('letters/preview',{body:{items}});const ok=p.contacts.filter(c=>!c.problem),nt=ok.reduce((a,c)=>a+c.tasks.length,0);
+  if(!ok.length){const o=fromQ?$('#lout'):$('#sout');o.innerHTML=showPrev(p);return;}
+  if(!confirm(`${ok.length} letter jayenge${p.contacts.length>ok.length?' ('+(p.contacts.length-ok.length)+' me problem, wo nahi jayenge)':''} aur ${nt} task close honge.${p.dry?'\n\nTEST MODE: asal me kuch nahi hoga.':''}\n\nTheek hai?`))return;
+  const r=await api('letters/send',{body:{items:ok.map(c=>items.find(i=>String(i.id)===String(c.id)))}});
+  const out=r.results.map(x=>`<p>${x.error?'<span class="tag no">Fail</span>':'<span class="tag ok2">'+(x.dry?'Test (dry run)':'Gaya')+'</span>'} <b>${esc(x.name)}</b> ${x.error?esc(x.error):(x.dry?'— '+(x.would_close||[]).length+' task close hote':'— '+x.closed.length+' task close hue')}</p>`).join('');
+  (fromQ?$('#lout'):$('#sout')).innerHTML=out;loadLog();if(fromQ&&!r.dry)loadQ();}catch(e){say(e.message,true)}};
+ const loadQ=async()=>{try{Q=await api('letters/queue');drawQ();}catch(e){$('#lq').innerHTML=`<div class="msg err">${esc(e.message)}</div>`;}};
+ const search=async()=>{try{const rows=await api('letters/contacts?q='+encodeURIComponent($('#sq').value));
+  $('#sres').innerHTML=`<table>${rows.map(c=>`<tr><td style="width:30px"><input type="radio" name="sc" class="sc" value="${esc(c.id)}" style="width:auto"></td><td>${esc(c.name)}<br><small>${esc(c.email)}</small></td></tr>`).join('')||'<tr><td>Koi contact nahi mila</td></tr>'}</table>
+  ${rows.length&&can?`<div class="row"><div><label>Template</label>${tplSel('s','')}</div><button class="b g big" id="ssd">Send Letter</button></div>`:''}<div id="sout"></div>`;
+  if(rows.length&&can)$('#ssd').onclick=()=>{const id=(m.querySelector('.sc:checked')||{}).value,k=m.querySelector('#sres .lt').value;if(!id)return alert('Contact chuno');if(!k)return alert('Template chuno');doSend([{id,templateKey:k}],false);};}catch(e){say(e.message,true)}};
+ const loadLog=async()=>{const l=await api('letters/log');$('#llog').innerHTML=`<table>${l.map(x=>`<tr><td>${esc(x.at)}</td><td>${esc(x.contact_name)}</td><td>${esc(x.result)}</td><td><small>${esc(x.closed||'')}</small></td></tr>`).join('')||'<tr><td>Abhi tak kuch nahi</td></tr>'}</table>`;};
  if(me.role==='admin'){api('letters/config').then(c=>{$('#lcb').value=c.base;$('#lcs').textContent=c.key_set?'(saved)':'(not set)';});$('#lcsv').onclick=async()=>{try{const c=await api('letters/config',{body:{base:$('#lcb').value,key:$('#lck').value}});$('#lck').value='';$('#lcs').textContent=c.key_set?'(saved)':'(not set)';say('Saved');}catch(e){say(e.message,true)}};}
- $('#lgo').onclick=search;$('#lq').onkeydown=e=>{if(e.key==='Enter')search();};search();loadLog();},
+ $('#sgo').onclick=search;$('#sq').onkeydown=e=>{if(e.key==='Enter')search();};
+ Q=await api('letters/templates').then(t=>({templates:t,rows:[]})).catch(()=>Q);loadQ();loadLog();},
 async assign(m){const [emps,rules,st]=await Promise.all([api('employees'),api('assign/rules'),api('assign/settings')]);
  const en=Object.fromEntries(emps.map(e=>[e.id,e.name]));const can=me.role!=='executive';
  m.insertAdjacentHTML('beforeend',`<div class="card"><h3>1. Settings</h3>

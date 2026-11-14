@@ -306,9 +306,11 @@ app.post('/api/pending/:id/reject', MGR, (req, res) => { db.prepare("UPDATE pend
 
 // ---------- Send Letter ----------
 app.get('/api/letters/contacts', ANY, async (req, res) => { try { res.json(await LT.search(req.query.q)); } catch (e) { res.status(502).json({ error: e.message }); } });
-app.post('/api/letters/preview', MGR, async (req, res) => { try { res.json(await LT.preview((req.body.ids || []).slice(0, 50))); } catch (e) { res.status(502).json({ error: e.message }); } });
+app.get('/api/letters/queue', ANY, async (req, res) => { try { res.json(await LT.queue()); } catch (e) { res.status(502).json({ error: e.message }); } });
+app.get('/api/letters/templates', ANY, async (req, res) => { try { res.json((await LT.templates()).map((t) => ({ key: t.key, name: t.name }))); } catch (e) { res.status(502).json({ error: e.message }); } });
+app.post('/api/letters/preview', MGR, async (req, res) => { try { res.json(await LT.preview((req.body.items || req.body.ids || []).slice(0, 50))); } catch (e) { res.status(502).json({ error: e.message }); } });
 app.post('/api/letters/send', MGR, async (req, res) => {
-  const ids = (req.body.ids || []).slice(0, 50); if (!ids.length) return res.status(400).json({ error: 'Select at least one contact' });
+  const ids = (req.body.items || req.body.ids || []).slice(0, 50); if (!ids.length) return res.status(400).json({ error: 'Kam se kam ek contact chuno' });
   try { res.json(await LT.send(ids, req.user.username)); } catch (e) { res.status(502).json({ error: e.message }); }
 });
 app.get('/api/letters/config', MGR, (req, res) => res.json(LT.config()));
@@ -371,6 +373,9 @@ app.get('/api/dashboard', ANY, async (req, res) => {
     const today = new Date().toISOString().slice(0, 10);
     res.json({
       open: tasks.length, overdue: tasks.filter((t) => t.Due_Date && t.Due_Date < today).length, byDept,
+      letters: new Set(tasks.filter(LT.isLetterTask).map((t) => t.Who_Id?.id).filter(Boolean)).size,
+      unassigned: tasks.filter((t) => !String(t.Assign_to || '').trim()).length,
+      dry: process.env.DRY_RUN === '1',
       pendingOutbox: db.prepare("SELECT COUNT(*) n FROM outbox WHERE status='pending'").get().n,
       pendingActions: db.prepare("SELECT COUNT(*) n FROM pending_actions WHERE status='pending'").get().n,
       pendingEmails: db.prepare("SELECT COUNT(*) n FROM email_queue WHERE status='pending'").get().n,
