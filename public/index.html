@@ -64,9 +64,16 @@ async dashboard(m){const d=await api('dashboard');const go=t=>{tab=t;render();};
  ${row(d.pendingOutbox,'Messages approval ke intezaar me','Email / letter / WhatsApp jo tumhari haan ke bina nahi jayenge.','Dekho aur approve karo','outbox')}
  ${row(d.pendingActions,'Automation ke kaam approve karne hain','Automation ne jo karna chaha, tumhari haan chahiye.','Dekho','pending')}
  ${row(d.pendingEmails,'Emails review karne hain','Emails se CRM me kya update hoga, check karo.','Dekho','emails')}
+ <div id="sum"></div>
  <div class="grid"><div class="card stat"><b>${d.open}</b>Kul open tasks</div><div class="card stat"><b>${d.overdue}</b>Der ho chuki (overdue)</div></div>
  <details class="card"><summary><b>Group ke hisaab se open tasks</b></summary><table>${Object.entries(d.byDept).sort((a,b)=>b[1]-a[1]).map(([k,v])=>`<tr><td>${esc(k)}</td><td>${v}</td></tr>`).join('')}</table></details>`);
- m.querySelectorAll('[data-go]').forEach(b=>b.onclick=()=>go(b.dataset.go));},
+ m.querySelectorAll('[data-go]').forEach(b=>b.onclick=()=>go(b.dataset.go));
+ try{const u=await api('summary');const c=u.assign_check;
+  $('#sum').innerHTML=`<div class="card"><h3 style="margin:0 0 8px">Pichhle 24 ghante</h3>
+  <p>Letters bheje: <b>${u.letters}</b> · Tasks baante gaye: <b>${Math.max(0,u.assigned)}</b></p>
+  ${u.assign_mode==='0'?'<p><small>Auto-check band hai (Task Assignment me chalu kar sakte ho).</small></p>':c?`<p><small>Auto-check (${u.assign_mode==='1'?'apne aap baantta hai':'sirf check'}): ${new Date(c.at).toLocaleString('en-IN')} — ${c.ready} tayyar, ${c.undecided} ka faisla baaki${c.applied?', '+c.applied+' baante gaye':''}.</small></p>`:'<p><small>Auto-check abhi chala nahi.</small></p>'}
+  ${u.automations.length?'<small>Automations: '+u.automations.map(a=>esc(a.name)+' ('+(a.error?'error':'matched '+a.matched+', handled '+a.handled)+')').join(' · ')+'</small>':''}
+  ${u.errors.length?'<div class="msg err" style="margin-top:8px"><b>Atke hue / errors</b><br>'+u.errors.map(e=>esc(e.detail)).join('<br>')+'</div>':''}</div>`;}catch(e){}},
 
 async closer(m){
  m.insertAdjacentHTML('beforeend',`<div class="card"><div class="row"><div><label>Search</label><input id="q"></div><div><label>Group (Dept_Name)</label><input id="dp"></div>
@@ -223,10 +230,10 @@ async assign(m){const [emps,rules,st]=await Promise.all([api('employees'),api('a
  <div class="row" style="margin-top:10px"><div><label>Rule ka naam</label><input id="rn"></div><div><label>Kahan dhundho</label><select id="rf"><option value="Subject">Task subject</option><option value="Dept_Name">Group (Dept_Name)</option></select></div><div><label>Ye likha ho to</label><input id="rm"></div></div>
  <label>Kisko do (jis ke paas sabse kam open tasks hon use milega)</label><div class="row">${emps.map(e=>`<label style="display:inline-flex;gap:4px;align-items:center;flex:0"><input type="checkbox" class="re" value="${e.id}" style="width:auto"> ${esc(e.name)}${e.active?'':' (inactive)'}</label>`).join('')||'<small>Pehle staff add karo.</small>'}</div>
  <button class="b" id="rsv">Rule jodo</button><table style="margin-top:10px">${rules.map(r=>`<tr><td>${esc(r.name)}</td><td>${esc(r.match_field)} me “${esc(r.match_value)}”</td><td>${r.employee_ids.map(i=>esc(en[i]||'?')).join(', ')}</td><td>${can?`<button class="b r" data-dr="${r.id}">Delete</button>`:''}</td></tr>`).join('')}</table></details>
- <details class="card"><summary><b>3. Auto-baantna</b> <small>(${st.assign_auto?'ON':'OFF'})</small></summary><div class="row" style="margin-top:10px"><div><label>Khud baante rahe?</label><select id="sau"><option value="0" ${st.assign_auto?'':'selected'}>Nahi — main button dabaunga</option><option value="1" ${st.assign_auto?'selected':''}>Haan — apne aap</option></select></div>
+ <details class="card"><summary><b>3. Auto-baantna</b> <small>(${st.assign_auto==='1'?'ON':st.assign_auto==='preview'?'sirf check':'OFF'})</small></summary><div class="row" style="margin-top:10px"><div><label>Khud check/baante?</label><select id="sau"><option value="0" ${st.assign_auto==='0'?'selected':''}>Band — main button dabaunga</option><option value="preview" ${st.assign_auto==='preview'?'selected':''}>Sirf check karo aur Aaj ka kaam me batao (kuch badlo mat)</option><option value="1" ${st.assign_auto==='1'?'selected':''}>Apne aap baanto</option></select></div>
  <div><label>Kitne minute me ek baar check</label><input id="sam" type="number" value="${st.assign_minutes}"></div><button class="b" id="ssv">Save</button></div>
- <p><small>Auto ON me sirf rule se match hone wale khali tasks baante jate hain. Jinke liye rule nahi, wo yahin "Tumhara faisla" me aate hain.</small></p></details>`);
- $('#ssv').onclick=async()=>{try{await api('assign/settings',{body:{assign_auto:$('#sau').value==='1',assign_minutes:+$('#sam').value}});say('Save ho gaya');}catch(e){say(e.message,true)}};
+ <p><small>Shuru me "Sirf check" rakho. Portal khud dekhega kitne tasks tayyar hain aur Aaj ka kaam me batayega. Bharosa ho jaye tab "Apne aap baanto". Jinke liye rule nahi, wo yahin "Tumhara faisla" me aate hain.</small></p></details>`);
+ $('#ssv').onclick=async()=>{try{await api('assign/settings',{body:{assign_auto:$('#sau').value,assign_minutes:+$('#sam').value}});say('Save ho gaya');}catch(e){say(e.message,true)}};
  $('#ead').onclick=async()=>{try{await api('employees',{body:{name:$('#en').value}});render();}catch(e){say(e.message,true)}};
  const imp=async()=>{try{const l=(await api('employees/from-tasks')).filter(x=>!x.known);const box=$('#imp');
   if(!l.length){box.innerHTML='<p><small>Assign_to ke saare naam staff list me pehle se hain.</small></p>';return;}

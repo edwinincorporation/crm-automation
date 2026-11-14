@@ -335,10 +335,10 @@ app.post('/api/employees/:id/toggle', MGR, (req, res) => {
 });
 app.delete('/api/employees/:id', MGR, (req, res) => { db.prepare('DELETE FROM employees WHERE id=?').run(req.params.id); res.json({ ok: true }); });
 
-app.get('/api/assign/settings', ANY, (req, res) => res.json({ default_owner: AS.getSetting('default_owner'), assign_auto: AS.getSetting('assign_auto') === '1', assign_minutes: +AS.getSetting('assign_minutes', '30') }));
+app.get('/api/assign/settings', ANY, (req, res) => res.json({ default_owner: AS.getSetting('default_owner'), assign_auto: ['1', 'preview'].includes(AS.getSetting('assign_auto')) ? AS.getSetting('assign_auto') : '0', assign_minutes: +AS.getSetting('assign_minutes', '30') }));
 app.post('/api/assign/settings', MGR, (req, res) => {
   const b = req.body;
-  AS.setSetting('default_owner', String(b.default_owner || '').trim()); AS.setSetting('assign_auto', b.assign_auto ? '1' : '0'); AS.setSetting('assign_minutes', Math.max(5, +b.assign_minutes || 30));
+  AS.setSetting('default_owner', String(b.default_owner || '').trim()); AS.setSetting('assign_auto', ['1', 'preview'].includes(String(b.assign_auto)) ? String(b.assign_auto) : '0'); AS.setSetting('assign_minutes', Math.max(5, +b.assign_minutes || 30));
   log(req.user.username, 'assign_settings', JSON.stringify(b)); res.json({ ok: true });
 });
 app.get('/api/assign/rules', ANY, (req, res) => res.json(db.prepare('SELECT * FROM assign_rules ORDER BY id').all().map((r) => ({ ...r, employee_ids: JSON.parse(r.employee_ids || '[]') }))));
@@ -381,6 +381,13 @@ app.get('/api/dashboard', ANY, async (req, res) => {
       pendingEmails: db.prepare("SELECT COUNT(*) n FROM email_queue WHERE status='pending'").get().n,
     });
   } catch (e) { res.status(502).json({ error: e.message }); }
+});
+app.get('/api/summary', ANY, (req, res) => {
+  const cnt = (like) => db.prepare("SELECT COUNT(*) n FROM activity WHERE at >= datetime('now','-1 day') AND action LIKE ?").get(like).n;
+  let chk = null; try { chk = JSON.parse(AS.getSetting('assign_check', 'null')); } catch (_) { /* none */ }
+  const errs = db.prepare("SELECT at, action, detail FROM activity WHERE at >= datetime('now','-1 day') AND (action LIKE '%error%' OR detail LIKE 'ERROR%' OR detail LIKE '%ERROR %') ORDER BY id DESC LIMIT 8").all();
+  const auto = db.prepare('SELECT name, last_run, last_result FROM automations WHERE last_run IS NOT NULL ORDER BY last_run DESC LIMIT 6').all().map((a) => { let r = {}; try { r = JSON.parse(a.last_result || '{}'); } catch (_) { /* ignore */ } return { name: a.name, last_run: a.last_run, matched: r.matched, handled: r.handled, error: r.error || '' }; });
+  res.json({ letters: cnt('send_letter'), assigned: cnt('assign%') - cnt('assign_check') - cnt('assign_settings') - cnt('assign_error'), assign_mode: AS.getSetting('assign_auto') || '0', assign_check: chk, errors: errs, automations: auto });
 });
 app.get('/api/activity', MGR, (req, res) => res.json(db.prepare('SELECT * FROM activity ORDER BY id DESC LIMIT 300').all()));
 
