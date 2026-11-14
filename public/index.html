@@ -227,7 +227,15 @@ async mailmeter(m){const can=me.role!=='executive';
  m.insertAdjacentHTML('beforeend',`<div class="card"><h3>Mail Meter Check</h3><p><small>Delhi Crest Mail ke campaigns me jisne <b>reply</b> kiya ya <b>link click</b> kiya, aur Zoho me jiska task abhi nahi hai — wo yahan aate hain. Tick karke "Tasks banao" dabao. Zoho me kuch bhi bina tumhare click ke nahi banta.</small></p>
  <div class="row"><div><label>Pichhle kitne din</label><select id="md"><option value="3">3 din</option><option value="7" selected>7 din</option><option value="14">14 din</option><option value="30">30 din</option></select></div><button class="b" id="mgo">Check karo</button></div>
  ${me.role!=='executive'?`<details><summary><small>Task subject ka shuru</small></summary><div class="row"><div><input id="mpx"></div><button class="b l" id="mpsv">Save</button></div></details>`:''}
+ ${can?`<details id="mau"><summary><b>Roz apne aap chalao (optional)</b></summary>
+ <p><small>Pehle kuch din khud "Check karo" chala kar dekho ki list sahi aa rahi hai. Phir yahan se chalu karo. Band rakhoge to kuch apne aap nahi hoga.</small></p>
+ <div class="row"><div><label>Kya kare</label><select id="maum"><option value="0">Band (khud chalao)</option><option value="list">Roz sirf list taiyaar kare</option><option value="create">List + jinka task nahi hai unka task bhi bana de</option></select></div>
+ <div><label>Kitne baje (IST)</label><select id="mauh">${Array.from({length:24},(_,i)=>`<option value="${i}">${i}:00</option>`).join('')}</select></div>
+ <button class="b l" id="mausv">Save</button></div><div id="maus"></div></details>`:''}
  <div id="mres">Check ho raha hai…</div></div>`);
+ const auShow=a=>{if(!$('#maum'))return;$('#maum').value=a.mode;$('#maus').innerHTML=(a.mode==='create'&&a.dry?'<div class="msg">TEST MODE chalu hai, isliye task nahi banenge.</div>':'')+(a.last?`<small>Pichhli baar: ${esc(a.last.date)} — ${a.last.error?esc(a.last.error):a.last.todo+' ko task chahiye, '+a.last.created+' bane'}</small>`:'<small>Abhi tak chala nahi.</small>');};
+ if($('#maum')){api('mailmeter/auto').then(a=>{$('#maum').value=a.mode;$('#mauh').value=a.hour;auShow(a);}).catch(()=>{});
+  $('#mausv').onclick=async()=>{const md=$('#maum').value;if(md==='create'&&!confirm('Ye roz apne aap Zoho me task banayega (jinka pehle se nahi hai). Pakka chalu karein?'))return;try{auShow(await api('mailmeter/auto',{body:{mode:md,hour:$('#mauh').value}}));}catch(e){say(e.message,true)}};}
  let D=null;
  const draw=()=>{const todo=D.rows.filter(r=>!r.handled&&r.contact&&!r.problem),other=D.rows.filter(r=>r.handled||!r.contact||r.problem);
   $('#mpx')&&($('#mpx').value=D.prefix);
