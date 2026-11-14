@@ -268,6 +268,13 @@ app.post('/api/tasks/run-macro', MGR, async (req, res) => {
 
 // ---------- Automations + Scheduler ----------
 app.get('/api/automations', ANY, (req, res) => res.json(db.prepare('SELECT a.*, m.name macro_name FROM automations a LEFT JOIN macros m ON m.id=a.macro_id ORDER BY a.id').all()));
+app.post('/api/starter/missed-call', MGR, (req, res) => {
+  let m = db.prepare("SELECT id FROM macros WHERE name='Missed call - done'").get();
+  if (!m) { db.prepare('INSERT INTO macros(name,steps) VALUES(?,?)').run('Missed call - done', JSON.stringify(cleanSteps([{ type: 'note', text: 'Missed call checked' }, { type: 'close' }]))); m = db.prepare("SELECT id FROM macros WHERE name='Missed call - done'").get(); }
+  if (!db.prepare("SELECT 1 FROM automations WHERE name='Missed call tasks'").get())
+    db.prepare('INSERT INTO automations(name,match_field,match_value,status_filter,min_overdue_days,macro_id,schedule,mode,max_per_run,last_run) VALUES(?,?,?,?,?,?,?,?,?,?)').run('Missed call tasks', 'Subject', 'missed call', '', 0, m.id, JSON.stringify({ type: 'manual' }), 'preview', 50, new Date().toISOString());
+  log(req.user.username, 'starter', 'missed-call macro + preview automation'); res.json({ ok: true });
+});
 app.post('/api/automations', MGR, (req, res) => {
   const a = req.body;
   if (!a.name || !db.prepare('SELECT 1 FROM macros WHERE id=?').get(a.macro_id)) return res.status(400).json({ error: 'Name and a valid macro are required' });
@@ -313,6 +320,8 @@ app.post('/api/letters/send', MGR, async (req, res) => {
   const ids = (req.body.items || req.body.ids || []).slice(0, 50); if (!ids.length) return res.status(400).json({ error: 'Kam se kam ek contact chuno' });
   try { res.json(await LT.send(ids, req.user.username)); } catch (e) { res.status(502).json({ error: e.message }); }
 });
+app.get('/api/letters/map', ANY, (req, res) => res.json(LT.getMap()));
+app.post('/api/letters/map', MGR, (req, res) => { const m = LT.saveMap(req.body.map); log(req.user.username, 'letter_map', `${m.length} mapping(s)`); res.json(m); });
 app.get('/api/letters/config', MGR, (req, res) => res.json(LT.config()));
 app.post('/api/letters/config', auth(['admin']), (req, res) => { LT.saveConfig(req.body || {}); log(req.user.username, 'letter_config', 'updated'); res.json(LT.config()); });
 app.get('/api/letters/log', ANY, (req, res) => res.json(db.prepare('SELECT * FROM letter_log ORDER BY id DESC LIMIT 100').all()));
@@ -341,6 +350,8 @@ app.post('/api/assign/settings', MGR, (req, res) => {
   AS.setSetting('default_owner', String(b.default_owner || '').trim()); AS.setSetting('assign_auto', ['1', 'preview'].includes(String(b.assign_auto)) ? String(b.assign_auto) : '0'); AS.setSetting('assign_minutes', Math.max(5, +b.assign_minutes || 30));
   log(req.user.username, 'assign_settings', JSON.stringify(b)); res.json({ ok: true });
 });
+app.get('/api/assign/name-fixes', MGR, async (req, res) => { try { res.json(await AS.nameFixes()); } catch (e) { res.status(502).json({ error: e.message }); } });
+app.post('/api/assign/name-fixes', MGR, async (req, res) => { try { res.json({ results: await AS.applyNameFixes((req.body.items || []).slice(0, 200), req.user.username) }); } catch (e) { res.status(502).json({ error: e.message }); } });
 app.get('/api/assign/rules', ANY, (req, res) => res.json(db.prepare('SELECT * FROM assign_rules ORDER BY id').all().map((r) => ({ ...r, employee_ids: JSON.parse(r.employee_ids || '[]') }))));
 app.post('/api/assign/rules', MGR, (req, res) => {
   const r = req.body;

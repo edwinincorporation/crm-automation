@@ -128,6 +128,8 @@ async rules(m){const r=await api('rules');
  m.querySelectorAll('[data-d]').forEach(b=>b.onclick=async()=>{if(confirm('Delete this rule?')){await api('rules/'+b.dataset.d,{method:'DELETE'});render();}});},
 
 async macros(m){const ms=await api('macros');
+ m.insertAdjacentHTML('beforeend',`<div class="card"><h3>Ready-made (ek click)</h3><p><small><b>Missed call:</b> "missed call" wale tasks me note likh ke task close. Automation <b>Preview</b> me banegi (kuch badlegi nahi); Automations tab me dekh ke tum mode badlo.</small></p>${me.role!=='executive'?'<button class="b g" id="smc">Missed call macro + automation banao</button>':''}</div>`);
+ if($('#smc'))$('#smc').onclick=async()=>{try{await api('starter/missed-call',{method:'POST',body:{}});say('Ban gaya — Automations tab me "Missed call tasks" (Preview mode) dekho.');}catch(e){say(e.message,true)}};
  m.insertAdjacentHTML('beforeend',`<div class="card"><h3>New macro — a saved set of actions for a task</h3>
  <p>Fill only the parts you need. Steps run in this order: fields → assign → note → follow-up task → message → close.</p>
  <div class="row"><div><label>Macro name</label><input id="mn" placeholder="e.g. Not interested - close"></div></div>
@@ -185,6 +187,7 @@ async pending(m){const p=await api('pending');
 async letters(m){const can=me.role!=='executive';
  m.insertAdjacentHTML('beforeend',`<div id="lban"></div><div class="card"><h3>Letters bhejo</h3><p><small>Jin contacts par letter ka task open hai wo neeche apne aap aa gaye. Template dekho (ya list se badlo), tick karo aur <b>Send Letter</b> dabao. Letter jaane ke baad hi task close hota hai.</small></p><div id="lq">Load ho raha hai…</div></div>
  <div class="card"><h3>Kisi aur contact ko letter bhejna hai?</h3><div class="row"><div><label>Naam ya email se dhundho</label><input id="sq" placeholder="kam se kam 2 akshar, Enter dabao"></div><button class="b" id="sgo">Dhundho</button></div><div id="sres"></div></div>
+ <details class="card"><summary><b>Template mapping</b> <small>(task ke shabd → template, ek baar set karo)</small></summary><p><small>Jaise task me "phillippines" likha ho to hamesha ye template. Isse list me template apne aap chuna aata hai.</small></p><div id="lmap"></div></details>
  ${me.role==='admin'?`<details class="card"><summary><b>Letter Manager settings</b></summary><div class="row"><div><label>Address</label><input id="lcb"></div><div><label>API key <small id="lcs"></small></label><input id="lck" type="password" placeholder="ek baar paste karo; khali = jaisa hai waisa"></div><button class="b" id="lcsv">Save</button></div></details>`:''}
  <div class="card"><h3>Pichhle letters</h3><div id="llog"></div></div>`);
  let Q={templates:[],rows:[]};const sel=new Map(); // id -> templateKey
@@ -213,10 +216,13 @@ async letters(m){const can=me.role!=='executive';
   $('#sres').innerHTML=`<table>${rows.map(c=>`<tr><td style="width:30px"><input type="radio" name="sc" class="sc" value="${esc(c.id)}" style="width:auto"></td><td>${esc(c.name)}<br><small>${esc(c.email)}</small></td></tr>`).join('')||'<tr><td>Koi contact nahi mila</td></tr>'}</table>
   ${rows.length&&can?`<div class="row"><div><label>Template</label>${tplSel('s','')}</div><button class="b g big" id="ssd">Send Letter</button></div>`:''}<div id="sout"></div>`;
   if(rows.length&&can)$('#ssd').onclick=()=>{const id=(m.querySelector('.sc:checked')||{}).value,k=m.querySelector('#sres .lt').value;if(!id)return alert('Contact chuno');if(!k)return alert('Template chuno');doSend([{id,templateKey:k}],false);};}catch(e){say(e.message,true)}};
+ const loadMap=async()=>{const mp=await api('letters/map');const row=(w,k)=>`<div class="row mrow"><div><input class="mw" value="${esc(w)}" placeholder="task me ye shabd, jaise phillippines"></div><div>${tplSel('m',k).replace('class="lt"','class="mk"')}</div></div>`;
+  $('#lmap').innerHTML=mp.map(x=>row(x.word,x.key)).join('')+row('','')+(can?'<button class="b" id="msv2">Mapping save karo</button>':'');
+  if(can)$('#msv2').onclick=async()=>{const list=[...m.querySelectorAll('#lmap .mrow')].map(r=>({word:r.querySelector('.mw').value,key:r.querySelector('.mk').value}));try{await api('letters/map',{body:{map:list}});say('Mapping save ho gayi');}catch(e){say(e.message,true)}};};
  const loadLog=async()=>{const l=await api('letters/log');$('#llog').innerHTML=`<table>${l.map(x=>`<tr><td>${esc(x.at)}</td><td>${esc(x.contact_name)}</td><td>${esc(x.result)}</td><td><small>${esc(x.closed||'')}</small></td></tr>`).join('')||'<tr><td>Abhi tak kuch nahi</td></tr>'}</table>`;};
  if(me.role==='admin'){api('letters/config').then(c=>{$('#lcb').value=c.base;$('#lcs').textContent=c.key_set?'(saved)':'(not set)';});$('#lcsv').onclick=async()=>{try{const c=await api('letters/config',{body:{base:$('#lcb').value,key:$('#lck').value}});$('#lck').value='';$('#lcs').textContent=c.key_set?'(saved)':'(not set)';say('Saved');}catch(e){say(e.message,true)}};}
  $('#sgo').onclick=search;$('#sq').onkeydown=e=>{if(e.key==='Enter')search();};
- Q=await api('letters/templates').then(t=>({templates:t,rows:[]})).catch(()=>Q);loadQ();loadLog();},
+ Q=await api('letters/templates').then(t=>({templates:t,rows:[]})).catch(()=>Q);loadQ();loadLog();loadMap();},
 async assign(m){const [emps,rules,st]=await Promise.all([api('employees'),api('assign/rules'),api('assign/settings')]);
  const en=Object.fromEntries(emps.map(e=>[e.id,e.name]));const can=me.role!=='executive';const active=emps.filter(e=>e.active);
  m.insertAdjacentHTML('beforeend',`<div class="card"><h3>Tasks baanto</h3>
@@ -230,6 +236,7 @@ async assign(m){const [emps,rules,st]=await Promise.all([api('employees'),api('a
  <div class="row" style="margin-top:10px"><div><label>Rule ka naam</label><input id="rn"></div><div><label>Kahan dhundho</label><select id="rf"><option value="Subject">Task subject</option><option value="Dept_Name">Group (Dept_Name)</option></select></div><div><label>Ye likha ho to</label><input id="rm"></div></div>
  <label>Kisko do (jis ke paas sabse kam open tasks hon use milega)</label><div class="row">${emps.map(e=>`<label style="display:inline-flex;gap:4px;align-items:center;flex:0"><input type="checkbox" class="re" value="${e.id}" style="width:auto"> ${esc(e.name)}${e.active?'':' (inactive)'}</label>`).join('')||'<small>Pehle staff add karo.</small>'}</div>
  <button class="b" id="rsv">Rule jodo</button><table style="margin-top:10px">${rules.map(r=>`<tr><td>${esc(r.name)}</td><td>${esc(r.match_field)} me “${esc(r.match_value)}”</td><td>${r.employee_ids.map(i=>esc(en[i]||'?')).join(', ')}</td><td>${can?`<button class="b r" data-dr="${r.id}">Delete</button>`:''}</td></tr>`).join('')}</table></details>
+ <details class="card"><summary><b>4. Naam ek-jaise karo</b> <small>(raqib → Raqib Khan)</small></summary><p><small>Staff list ke hisaab se alag-alag spelling dikhata hai. Pehle list dikhegi, tick kiye hue hi badlenge. "A, B" jaise do naam wale aur anjaan naam nahi chhedte.</small></p><button class="b l" id="nfc">Check karo</button><div id="nfo"></div></details>
  <details class="card"><summary><b>3. Auto-baantna</b> <small>(${st.assign_auto==='1'?'ON':st.assign_auto==='preview'?'sirf check':'OFF'})</small></summary><div class="row" style="margin-top:10px"><div><label>Khud check/baante?</label><select id="sau"><option value="0" ${st.assign_auto==='0'?'selected':''}>Band — main button dabaunga</option><option value="preview" ${st.assign_auto==='preview'?'selected':''}>Sirf check karo aur Aaj ka kaam me batao (kuch badlo mat)</option><option value="1" ${st.assign_auto==='1'?'selected':''}>Apne aap baanto</option></select></div>
  <div><label>Kitne minute me ek baar check</label><input id="sam" type="number" value="${st.assign_minutes}"></div><button class="b" id="ssv">Save</button></div>
  <p><small>Shuru me "Sirf check" rakho. Portal khud dekhega kitne tasks tayyar hain aur Aaj ka kaam me batayega. Bharosa ho jaye tab "Apne aap baanto". Jinke liye rule nahi, wo yahin "Tumhara faisla" me aate hain.</small></p></details>`);
@@ -245,6 +252,10 @@ async assign(m){const [emps,rules,st]=await Promise.all([api('employees'),api('a
  m.querySelectorAll('[data-de]').forEach(b=>b.onclick=async()=>{if(confirm('Staff list se hatana hai?')){await api('employees/'+b.dataset.de,{method:'DELETE'});render();}});
  m.querySelectorAll('[data-dr]').forEach(b=>b.onclick=async()=>{if(confirm('Rule delete karein?')){await api('assign/rules/'+b.dataset.dr,{method:'DELETE'});render();}});
  $('#rsv').onclick=async()=>{try{await api('assign/rules',{body:{name:$('#rn').value,match_field:$('#rf').value,match_value:$('#rm').value,employee_ids:[...m.querySelectorAll('.re:checked')].map(c=>+c.value)}});say('Rule ban gaya');}catch(e){say(e.message,true)}};
+ $('#nfc').onclick=async()=>{try{const r=await api('assign/name-fixes'),o=$('#nfo');
+  if(!r.rostered){o.innerHTML='<p>Pehle staff list banao.</p>';return;}
+  o.innerHTML=r.fixes.length?`<table>${r.fixes.map((x,i)=>`<tr><td><input type="checkbox" class="nf" value="${i}" checked style="width:auto"></td><td>${esc(x.subject.slice(0,70))}</td><td>${esc(x.from)} → <b>${esc(x.to)}</b></td></tr>`).join('')}</table>${can?'<button class="b g" id="nfa">Chune hue badlo</button>':''}`:'<p>Sab naam pehle se ek-jaise hain.</p>';
+  if($('#nfa'))$('#nfa').onclick=async()=>{const items=[...o.querySelectorAll('.nf:checked')].map(c=>({task_id:r.fixes[+c.value].id,name:r.fixes[+c.value].to}));if(!items.length)return;if(!confirm(items.length+' task ka Assign_to badlega. Theek hai?'))return;const x=await api('assign/name-fixes',{body:{items}});const bad=x.results.filter(y=>!y.ok);say((x.results.length-bad.length)+' naam theek hue.'+(bad.length?' Problem: '+bad.map(y=>y.error).join(' | '):''),bad.length>0);};}catch(e){say(e.message,true)}};
  const box=$('#plan');
  try{const p=await api('assign/plan');
   if(!p.rostered){box.innerHTML='<div class="msg err">Pehle neeche "1. Staff list" me staff ke naam import karo, phir yahan tasks baant sakoge.</div>';return;}
