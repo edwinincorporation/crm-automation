@@ -318,7 +318,7 @@ async assign(m){const [emps,rules,st]=await Promise.all([api('employees'),api('a
  try{const p=await api('assign/plan');
   if(!p.rostered){box.innerHTML='<div class="msg err">Pehle neeche "1. Staff list" me staff ke naam import karo, phir yahan tasks baant sakoge.</div>';return;}
   const apply=async items=>{if(!confirm(`${items.length} task baante jayenge (sirf Assign_to likha jayega). Theek hai?`))return;const r=await api('assign/apply',{body:{items}});const bad=r.results.filter(x=>!x.ok);say(`${r.results.length-bad.length} task baante gaye.`+(bad.length?' Problem: '+bad.map(x=>x.error).join(' | '):''),bad.length>0);};
-  box.innerHTML=`<p><span class="tag ok2">${p.manual_untouched} task me pehle se naam hai — chhede nahi jayenge</span></p>
+  box.innerHTML=`${(p.staff_added||[]).length?'<div class="msg">Tasks ke Assign_to se naye staff jude: <b>'+p.staff_added.map(esc).join(', ')+'</b></div>':''}<p><span class="tag ok2">${p.manual_untouched} task me pehle se naam hai — chhede nahi jayenge</span></p>
   <h4>Rule se tayyar (${p.proposals.length})</h4><table>${p.proposals.map(x=>`<tr><td>${esc(x.subject)}</td><td><small>${esc(x.rule)}</small></td><td>→ <b>${esc(x.employee.name)}</b></td></tr>`).join('')||'<tr><td>Koi nahi</td></tr>'}</table>
   ${p.proposals.length&&can?`<p><button class="b g big" id="pa">Ye ${p.proposals.length} sab baanto</button></p>`:''}
   <h4>Tumhara faisla chahiye (${p.undecided.length})</h4><table>${p.undecided.map((x,i)=>`<tr><td>${esc(x.subject)}<br><small>${esc(x.dept)} · ${esc(x.reason)}</small></td>

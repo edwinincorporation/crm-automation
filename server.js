@@ -345,7 +345,7 @@ app.post('/api/letters/config', auth(['admin']), (req, res) => { LT.saveConfig(r
 app.get('/api/letters/log', ANY, (req, res) => res.json(db.prepare('SELECT * FROM letter_log ORDER BY id DESC LIMIT 100').all()));
 
 // ---------- Employees, assignment rules, learning ----------
-app.get('/api/employees', ANY, (req, res) => res.json(db.prepare('SELECT * FROM employees ORDER BY active DESC, name').all()));
+app.get('/api/employees', ANY, async (req, res) => { try { await AS.autoStaff(); } catch (_) { /* keep list as is */ } res.json(db.prepare('SELECT * FROM employees ORDER BY active DESC, name').all()); });
 app.post('/api/employees', MGR, (req, res) => {
   if (!req.body.name) return res.status(400).json({ error: 'Name required' });
   try { db.prepare('INSERT INTO employees(name,zoho_user_id) VALUES(?,?)').run(req.body.name.trim(), req.body.zoho_user_id || null); } catch { return res.status(400).json({ error: 'Already in roster' }); }
