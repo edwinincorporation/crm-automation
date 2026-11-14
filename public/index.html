@@ -42,10 +42,10 @@ const TABS=[['dashboard','Aaj ka kaam'],['closer','Task Closer'],['letters','Sen
 async function render(){
  const app=$('#app');
  if(!me){app.innerHTML=`<div id="login" class="card"><h2>CRM Management Portal</h2>
- <label>Username</label><input id="u"><br><br><label>Password</label><input id="p" type="password"><br><br>
- <button class="b" id="go">Login</button><p id="le" style="color:#b91c1c"></p></div>`;
+ <form id="lf" autocomplete="on"><label>Username</label><input id="u" name="username" autocomplete="username" autocapitalize="none" spellcheck="false"><br><br><label>Password</label><input id="p" name="password" type="password" autocomplete="current-password" autocapitalize="none" spellcheck="false"><br><label style="font-size:12px"><input type="checkbox" id="sp" style="width:auto"> Password dikhao / Show password</label><br><br>
+ <button class="b" id="go" type="submit">Login</button><p id="le" style="color:#b91c1c"></p></form></div>`;
  const go=async()=>{try{me=await api('login',{body:{username:$('#u').value,password:$('#p').value}});tab='dashboard';render();}catch(e){$('#le').textContent=e.message}};
- $('#go').onclick=go;$('#p').onkeydown=e=>e.key==='Enter'&&go();return;}
+ $('#lf').onsubmit=e=>{e.preventDefault();go();};$('#sp').onchange=e=>{$('#p').type=e.target.checked?'text':'password';};return;}
  const tabs=TABS.filter(t=>t[0]!=='users'||me.role==='admin');
  app.innerHTML=`<header><h1>CRM Management Portal ${me.demo?'<small>(DEMO data)</small>':''}</h1><small>${esc(me.username)} · ${esc(me.role)}</small><button class="b l" id="lo">Logout</button></header>
  <nav>${tabs.map(t=>`<button class="${tab===t[0]?'on':''}" data-t="${t[0]}">${t[1]}</button>`).join('')}</nav><main id="m"></main>`;
