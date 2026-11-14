@@ -37,7 +37,7 @@ let me=null,tab='dashboard',flash=null;
 async function api(p,o={}){const r=await fetch('/api/'+p,{method:o.method||(o.body?'POST':'GET'),headers:{'Content-Type':'application/json'},body:o.body?JSON.stringify(o.body):undefined});
  const j=await r.json().catch(()=>({}));if(r.status===401&&me){me=null;render();}if(!r.ok)throw new Error(j.error||r.status);return j;}
 function say(m,err){flash={m,err};render();}
-const TABS=[['dashboard','Aaj ka kaam'],['closer','Task Closer'],['letters','Send Letter'],['outbox','Outbox / Approvals'],['rules','Action Rules'],['macros','Macros'],['automations','Automations'],['pending','Auto Approvals'],['assign','Task Assignment'],['learn','Learning'],['workflows','Workflow Analysis'],['emails','Email Analysis'],['activity','Activity Log'],['users','Users']];
+const TABS=[['dashboard','Aaj ka kaam'],['closer','Task Closer'],['letters','Send Letter'],['mailmeter','Mail Meter Check'],['outbox','Outbox / Approvals'],['rules','Action Rules'],['macros','Macros'],['automations','Automations'],['pending','Auto Approvals'],['assign','Task Assignment'],['learn','Learning'],['workflows','Workflow Analysis'],['emails','Email Analysis'],['activity','Activity Log'],['users','Users']];
 
 async function render(){
  const app=$('#app');
@@ -223,6 +223,28 @@ async letters(m){const can=me.role!=='executive';
  if(me.role==='admin'){api('letters/config').then(c=>{$('#lcb').value=c.base;$('#lcs').textContent=c.key_set?'(saved)':'(not set)';});$('#lcsv').onclick=async()=>{try{const c=await api('letters/config',{body:{base:$('#lcb').value,key:$('#lck').value}});$('#lck').value='';$('#lcs').textContent=c.key_set?'(saved)':'(not set)';say('Saved');}catch(e){say(e.message,true)}};}
  $('#sgo').onclick=search;$('#sq').onkeydown=e=>{if(e.key==='Enter')search();};
  Q=await api('letters/templates').then(t=>({templates:t,rows:[]})).catch(()=>Q);loadQ();loadLog();loadMap();},
+async mailmeter(m){const can=me.role!=='executive';
+ m.insertAdjacentHTML('beforeend',`<div class="card"><h3>Mail Meter Check</h3><p><small>Delhi Crest Mail ke campaigns me jisne <b>reply</b> kiya ya <b>link click</b> kiya, aur Zoho me jiska task abhi nahi hai — wo yahan aate hain. Tick karke "Tasks banao" dabao. Zoho me kuch bhi bina tumhare click ke nahi banta.</small></p>
+ <div class="row"><div><label>Pichhle kitne din</label><select id="md"><option value="3">3 din</option><option value="7" selected>7 din</option><option value="14">14 din</option><option value="30">30 din</option></select></div><button class="b" id="mgo">Check karo</button></div>
+ ${me.role!=='executive'?`<details><summary><small>Task subject ka shuru</small></summary><div class="row"><div><input id="mpx"></div><button class="b l" id="mpsv">Save</button></div></details>`:''}
+ <div id="mres">Check ho raha hai…</div></div>`);
+ let D=null;
+ const draw=()=>{const todo=D.rows.filter(r=>!r.handled&&r.contact),other=D.rows.filter(r=>r.handled||!r.contact);
+  $('#mpx')&&($('#mpx').value=D.prefix);
+  $('#mres').innerHTML=(D.dry?'<div class="msg">TEST MODE: tasks sach me nahi banenge, sirf dikhega.</div>':'')+
+  `<h4>Task banana baaki (${todo.length})</h4>${todo.length?`<table><tr><th><input type="checkbox" id="mall" checked style="width:auto"></th><th>Insaan</th><th>Campaign</th><th>Kya kiya</th><th>Task ka subject</th></tr>
+  ${todo.map(r=>`<tr><td><input type="checkbox" class="mk" value="${esc(r.key)}" checked style="width:auto"></td><td><b>${esc(r.contact.name||'')}</b><br><small>${esc(r.email)}</small></td><td>${esc(r.campaign)}</td><td><span class="tag ${r.kind==='Replied'?'ok2':'warn'}">${r.kind==='Replied'?'Reply':'Click'}</span><br><small>${esc(new Date(r.at).toLocaleString('en-IN'))}${r.clicks?' · '+r.clicks+' click':''}</small></td><td><small>${esc(D.prefix+' - '+r.campaign+', '+(r.kind==='Replied'?'Replied to email':'Clicked link in email'))}</small></td></tr>`).join('')}</table>
+  ${can?'<p><button class="b g big" id="mmk">Chune hue ke Tasks banao</button> <button class="b l" id="msk">Inhe chhod do (task nahi chahiye)</button></p>':''}`:'<p>Koi nahi — sab ke task pehle se hain.</p>'}<div id="mout"></div>
+  <details><summary><b>Pehle se nipte / Zoho me nahi mile (${other.length})</b></summary><table>${other.map(r=>`<tr><td>${esc(r.email)}</td><td>${esc(r.campaign)}</td><td>${esc(r.kind)}</td><td><small>${esc(r.handled||r.problem)}</small></td></tr>`).join('')}</table></details>`;
+  if(!todo.length)return;
+  $('#mall').onchange=e=>m.querySelectorAll('.mk').forEach(c=>c.checked=e.target.checked);
+  const keys=()=>[...m.querySelectorAll('.mk:checked')].map(c=>c.value);
+  if(can){$('#mmk').onclick=async()=>{const k=keys();if(!k.length)return alert('Pehle koi tick karo');if(!confirm(k.length+' task Zoho me banenge'+(D.dry?' (TEST MODE: asal me nahi)':'')+'. Theek hai?'))return;
+    try{const r=await api('mailmeter/create',{body:{keys:k}});const bad=r.results.filter(x=>!x.ok);$('#mout').innerHTML=r.results.map(x=>`<p>${x.ok?'<span class="tag ok2">'+(x.dry?'Test':'Ban gaya')+'</span>':'<span class="tag no">Nahi bana</span>'} ${esc(x.subject||x.error||'')}</p>`).join('');if(!r.dry&&!bad.length)go();}catch(e){say(e.message,true)}};
+   $('#msk').onclick=async()=>{const k=keys();if(!k.length)return;if(!confirm(k.length+' entry list se hata dein (task nahi banega)?'))return;await api('mailmeter/skip',{body:{keys:k}});go();};}};
+ const go=async()=>{$('#mres').textContent='Check ho raha hai…';try{D=await api('mailmeter/check?days='+$('#md').value);draw();}catch(e){$('#mres').innerHTML=`<div class="msg err">${esc(e.message)}</div>`;}};
+ $('#mgo').onclick=go;if($('#mpsv'))$('#mpsv').onclick=async()=>{await api('mailmeter/prefix',{body:{prefix:$('#mpx').value}});say('Save ho gaya');};go();},
+
 async assign(m){const [emps,rules,st]=await Promise.all([api('employees'),api('assign/rules'),api('assign/settings')]);
  const en=Object.fromEntries(emps.map(e=>[e.id,e.name]));const can=me.role!=='executive';const active=emps.filter(e=>e.active);
  m.insertAdjacentHTML('beforeend',`<div class="card"><h3>Tasks baanto</h3>

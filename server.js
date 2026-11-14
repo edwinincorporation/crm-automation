@@ -8,6 +8,7 @@ const A = require('./lib/analyze');
 const E = require('./lib/engine');
 const AS = require('./lib/assign');
 const LT = require('./lib/letters');
+const MM = require('./lib/mailmeter');
 
 const app = express();
 app.use(express.json({ limit: '2mb' }));
@@ -310,6 +311,12 @@ app.post('/api/pending/:id/approve', MGR, async (req, res) => {
   } catch (e) { res.status(502).json({ error: e.message }); }
 });
 app.post('/api/pending/:id/reject', MGR, (req, res) => { db.prepare("UPDATE pending_actions SET status='rejected' WHERE id=? AND status='pending'").run(req.params.id); res.json({ ok: true }); });
+
+// ---------- Mail Meter Check ----------
+app.get('/api/mailmeter/check', ANY, async (req, res) => { try { res.json(await MM.check(req.query.days)); } catch (e) { res.status(502).json({ error: e.message }); } });
+app.post('/api/mailmeter/create', MGR, async (req, res) => { try { res.json(await MM.create((req.body.keys || []).slice(0, 100), req.user.username)); } catch (e) { res.status(502).json({ error: e.message }); } });
+app.post('/api/mailmeter/skip', MGR, (req, res) => res.json(MM.skip((req.body.keys || []).slice(0, 300), req.user.username)));
+app.post('/api/mailmeter/prefix', MGR, (req, res) => { MM.setPrefix(req.body.prefix); res.json({ ok: true }); });
 
 // ---------- Send Letter ----------
 app.get('/api/letters/contacts', ANY, async (req, res) => { try { res.json(await LT.search(req.query.q)); } catch (e) { res.status(502).json({ error: e.message }); } });
