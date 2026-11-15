@@ -441,6 +441,7 @@ app.post('/api/closure/brands', MGR, (req, res) => { try { res.json(CL.setBrands
 app.post('/api/closure/trust', MGR, (req, res) => { CL.setTrust(String(req.body.k), !!req.body.enabled); res.json({ ok: true }); });
 app.get('/api/closure/services', ANY, (req, res) => res.json({ brands: Object.fromEntries(Object.entries(CL.brands()).map(([k, b]) => [k, b.name])), view: CL.servicesView() }));
 app.post('/api/closure/services', MGR, (req, res) => { try { res.json({ ok: true, n: CL.setServices(String(req.body.brand), req.body.items) }); } catch (e) { res.status(400).json({ error: e.message }); } });
+app.post('/api/closure/preview', ANY, (req, res) => res.json({ html: CL.preview(String(req.body.body || ''), String(req.body.brand || '')) }));
 app.post('/api/closure/cfg', MGR, (req, res) => res.json(CL.setCfg(req.body)));
 
 app.listen(port, () => { console.log(`CRM Management portal on :${port} ${zoho.DEMO ? '(DEMO mode)' : ''}`); if (process.env.SCHEDULER !== '0') E.startScheduler(); setInterval(() => MM.autoRun().catch(() => {}), 60000); setInterval(() => WA.autoRun().catch(() => {}), 60000); setInterval(() => CL.autoRun().catch((e) => log('closure', 'closure_error', e.message)), 600000); setInterval(() => AS.autoAssign().catch((e) => log('auto-assign', 'assign_error', e.message)), 60000); });
