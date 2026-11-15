@@ -49,6 +49,15 @@ app.post('/api/login', (req, res) => {
 app.post('/api/logout', (req, res) => { sessions.delete(cookie(req).sid); res.json({ ok: true }); });
 app.get('/api/me', ANY, (req, res) => res.json({ ...req.user, demo: zoho.DEMO }));
 
+// ---------- Edwin Dialer AI receptionist: who is calling (secret header, no login) ----------
+app.get('/api/ai-receptionist/customer', async (req, res) => {
+  const want = String(process.env.AI_RECEPTIONIST_SECRET || ''), got = String(req.headers['x-ai-receptionist-secret'] || '');
+  const ok = want.length >= 16 && got.length === want.length && crypto.timingSafeEqual(Buffer.from(got), Buffer.from(want));
+  if (!ok) return res.status(401).json({ error: 'Not allowed' });
+  try { res.json(await require('./lib/receptionist').lookup(req.query.phone)); }
+  catch (e) { res.json({ found: false }); } // the dialer must always be able to answer the call
+});
+
 // ---------- users (admin) ----------
 app.get('/api/users', ADM, (req, res) => res.json(db.prepare('SELECT id,username,role,created_at FROM users').all()));
 app.post('/api/users', ADM, (req, res) => {
