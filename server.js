@@ -12,6 +12,7 @@ const MM = require('./lib/mailmeter');
 const WA = require('./lib/whatsapp');
 const GEM = require('./lib/gem');
 const CL = require('./lib/closure');
+const AIC = require('./lib/aicall');
 
 const app = express();
 app.use(express.json({ limit: '2mb' }));
@@ -443,6 +444,14 @@ app.get('/api/activity', MGR, (req, res) => res.json(db.prepare('SELECT * FROM a
 app.use(express.static(path.join(__dirname, 'public')));
 const port = process.env.PORT || 3000;
 // ---------- Task Closure (mail drafts) ----------
+// ---------- AI Caller for calling tasks (Edwin Dialer) ----------
+app.get('/api/aicall/list', ANY, (req, res) => res.json(AIC.list()));
+app.post('/api/aicall/scan', MGR, async (req, res) => { try { const a = await AIC.scan(); const p = await AIC.poll(); res.json({ ...a, finished: p }); } catch (e) { res.status(502).json({ error: e.message }); } });
+app.post('/api/aicall/poll', MGR, async (req, res) => { try { res.json({ finished: await AIC.poll() }); } catch (e) { res.status(502).json({ error: e.message }); } });
+app.post('/api/aicall/approve', MGR, async (req, res) => { try { res.json(await AIC.approve(+req.body.id, req.user.username)); } catch (e) { res.status(400).json({ error: e.message }); } });
+app.post('/api/aicall/skip', MGR, (req, res) => { AIC.skip(+req.body.id, req.user.username); res.json({ ok: true }); });
+app.post('/api/aicall/cfg', MGR, (req, res) => res.json(AIC.setCfg(req.body || {})));
+
 app.get('/api/closure/list', ANY, (req, res) => res.json(CL.list()));
 app.post('/api/closure/scan', ANY, async (req, res) => { try { const a = await CL.scan(); const f = await CL.tick(); res.json({ ...a, followups: f }); } catch (e) { res.status(502).json({ error: e.message }); } });
 app.post('/api/closure/edit', MGR, (req, res) => { try { CL.edit(+req.body.id, req.body.subject, req.body.body); res.json({ ok: true }); } catch (e) { res.status(400).json({ error: e.message }); } });
@@ -459,4 +468,4 @@ app.post('/api/closure/preview', ANY, (req, res) => res.json({ html: CL.preview(
 app.post('/api/closure/testsend', MGR, async (req, res) => { try { res.json(await CL.testSend(+req.body.id, req.body.to, req.user.username)); } catch (e) { res.status(400).json({ error: e.message }); } });
 app.post('/api/closure/cfg', MGR, (req, res) => res.json(CL.setCfg(req.body)));
 
-app.listen(port, () => { console.log(`CRM Management portal on :${port} ${zoho.DEMO ? '(DEMO mode)' : ''}`); if (process.env.SCHEDULER !== '0') E.startScheduler(); setInterval(() => MM.autoRun().catch(() => {}), 60000); setInterval(() => WA.autoRun().catch(() => {}), 60000); setInterval(() => CL.autoRun().catch((e) => log('closure', 'closure_error', e.message)), 600000); setInterval(() => AS.autoAssign().catch((e) => log('auto-assign', 'assign_error', e.message)), 60000); });
+app.listen(port, () => { console.log(`CRM Management portal on :${port} ${zoho.DEMO ? '(DEMO mode)' : ''}`); if (process.env.SCHEDULER !== '0') E.startScheduler(); setInterval(() => MM.autoRun().catch(() => {}), 60000); setInterval(() => WA.autoRun().catch(() => {}), 60000); setInterval(() => AIC.poll().catch(() => {}), 120000); setInterval(() => CL.autoRun().catch((e) => log('closure', 'closure_error', e.message)), 600000); setInterval(() => AS.autoAssign().catch((e) => log('auto-assign', 'assign_error', e.message)), 60000); });
