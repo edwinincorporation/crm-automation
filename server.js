@@ -435,6 +435,7 @@ app.get('/api/closure/list', ANY, (req, res) => res.json(CL.list()));
 app.post('/api/closure/scan', ANY, async (req, res) => { try { const a = await CL.scan(); const f = await CL.tick(); res.json({ ...a, followups: f }); } catch (e) { res.status(502).json({ error: e.message }); } });
 app.post('/api/closure/edit', MGR, (req, res) => { try { CL.edit(+req.body.id, req.body.subject, req.body.body); res.json({ ok: true }); } catch (e) { res.status(400).json({ error: e.message }); } });
 app.post('/api/closure/approve', MGR, async (req, res) => { try { res.json(await CL.approve(+req.body.id, req.user.username)); } catch (e) { res.status(400).json({ error: e.message }); } });
+app.post('/api/closure/force', MGR, (req, res) => { try { res.json(CL.force(+req.body.id, req.user.username)); } catch (e) { res.status(400).json({ error: e.message }); } });
 app.post('/api/closure/skip', ANY, (req, res) => { CL.skip(+req.body.id, req.user.username); res.json({ ok: true }); });
 app.post('/api/closure/brands', MGR, (req, res) => { try { res.json(CL.setBrands(req.body.brands)); } catch (e) { res.status(400).json({ error: e.message }); } });
 app.post('/api/closure/trust', MGR, (req, res) => { CL.setTrust(String(req.body.k), !!req.body.enabled); res.json({ ok: true }); });
