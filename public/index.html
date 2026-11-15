@@ -60,6 +60,8 @@ async dashboard(m){const d=await api('dashboard');setTimeout(()=>{const b=docume
  m.insertAdjacentHTML('beforeend',`<div class="banner ${d.dry?'test':'live'}">${d.dry?'TEST MODE — abhi kuch bhi sach me nahi bhejta / close nahi karta. Sirf dikhata hai.':'LIVE — letters sach me jayenge aur tasks close honge.'}${me.role==='admin'?` <button class="b l" id="modesw" style="margin-left:12px">${d.dry?'LIVE karo':'TEST MODE me jao'}</button>`:''}</div>
  <h3 style="margin:0 0 10px">Aaj ka kaam</h3>
  ${row(d.letters,'Letters bhejne baaki','In contacts par letter ka open task hai. Ek click me letter jayega aur task close hoga.','Letters bhejo','letters')}
+ ${row(d.closureDrafts,'Task Closure: customer ko jaane wale draft approve karne hain','Email aur WhatsApp ke draft taiyar hain'+(d.closureWa?' (inme '+d.closureWa+' WhatsApp ke)':'')+'. Dekho, edit karo, Approve dabao.','Drafts dekho','closure')}
+ ${row(d.closureNeeds,'Task Closure: aapka jawab chahiye','Complaint, paisa ya status wale task - mail nahi bani, khud jawab do.','Dekho','closure')}
  ${row(d.unassigned,'Tasks jinka koi staff nahi (Assign_to khali)','Ek click me rule ke hisaab se staff ko baant do.','Tasks baanto','assign')}
  ${row(d.pendingOutbox,'Messages approval ke intezaar me','Email / letter / WhatsApp jo tumhari haan ke bina nahi jayenge.','Dekho aur approve karo','outbox')}
  ${row(d.pendingActions,'Automation ke kaam approve karne hain','Automation ne jo karna chaha, tumhari haan chahiye.','Dekho','pending')}

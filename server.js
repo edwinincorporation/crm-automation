@@ -416,6 +416,9 @@ app.get('/api/dashboard', ANY, async (req, res) => {
       pendingOutbox: db.prepare("SELECT COUNT(*) n FROM outbox WHERE status='pending'").get().n,
       pendingActions: db.prepare("SELECT COUNT(*) n FROM pending_actions WHERE status='pending'").get().n,
       pendingEmails: db.prepare("SELECT COUNT(*) n FROM email_queue WHERE status='pending'").get().n,
+      closureDrafts: db.prepare("SELECT COUNT(*) n FROM closure_drafts WHERE status='draft'").get().n,
+      closureWa: db.prepare("SELECT COUNT(*) n FROM closure_drafts WHERE status='draft' AND channel='whatsapp'").get().n,
+      closureNeeds: db.prepare("SELECT COUNT(*) n FROM closure_drafts WHERE status='needs_reply'").get().n,
     });
   } catch (e) { res.status(502).json({ error: e.message }); }
 });
