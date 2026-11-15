@@ -37,7 +37,7 @@ let me=null,tab='dashboard',flash=null;
 async function api(p,o={}){const r=await fetch('/api/'+p,{method:o.method||(o.body?'POST':'GET'),headers:{'Content-Type':'application/json'},body:o.body?JSON.stringify(o.body):undefined});
  const j=await r.json().catch(()=>({}));if(r.status===401&&me){me=null;render();}if(!r.ok)throw new Error(j.error||r.status);return j;}
 function say(m,err){flash={m,err};render();}
-const TABS=[['dashboard','Aaj ka kaam'],['closer','Task Closer'],['closure','Task Closure (Mail)'],['svcurls','Services (URLs)'],['letters','Send Letter'],['mailmeter','Mail Meter Check'],['whatsapp','WhatsApp Check'],['gem','GeM Tenders'],['outbox','Outbox / Approvals'],['rules','Action Rules'],['macros','Macros'],['automations','Automations'],['pending','Auto Approvals'],['assign','Task Assignment'],['learn','Learning'],['workflows','Workflow Analysis'],['emails','Email Analysis'],['activity','Activity Log'],['users','Users']];
+const TABS=[['dashboard','Aaj ka kaam'],['closer','Task Closer'],['closure','Task Closure (Mail + WhatsApp)'],['svcurls','Services (URLs)'],['letters','Send Letter'],['mailmeter','Mail Meter Check'],['whatsapp','WhatsApp Check'],['gem','GeM Tenders'],['outbox','Outbox / Approvals'],['rules','Action Rules'],['macros','Macros'],['automations','Automations'],['pending','Auto Approvals'],['assign','Task Assignment'],['learn','Learning'],['workflows','Workflow Analysis'],['emails','Email Analysis'],['activity','Activity Log'],['users','Users']];
 
 async function render(){
  const app=$('#app');
