@@ -59,6 +59,14 @@ app.get('/api/ai-receptionist/customer', async (req, res) => {
   catch (e) { res.json({ found: false }); } // the dialer must always be able to answer the call
 });
 
+app.post('/api/ai-receptionist/task', express.json({ limit: '20kb' }), async (req, res) => {
+  const want = String(process.env.AI_RECEPTIONIST_SECRET || ''), got = String(req.headers['x-ai-receptionist-secret'] || '');
+  const ok = want.length >= 16 && got.length === want.length && crypto.timingSafeEqual(Buffer.from(got), Buffer.from(want));
+  if (!ok) return res.status(401).json({ error: 'Not allowed' });
+  try { const r = await require('./lib/receptionist').createTaskFromCall(req.body || {}); log('ai-receptionist', 'task_from_call', JSON.stringify({ ok: r.ok, dry: !!r.dry, dup: !!r.duplicate })); res.json(r); }
+  catch (e) { res.json({ ok: false, error: 'could not save; tell the caller the team will call back' }); }
+});
+
 // ---------- users (admin) ----------
 app.get('/api/users', ADM, (req, res) => res.json(db.prepare('SELECT id,username,role,created_at FROM users').all()));
 app.post('/api/users', ADM, (req, res) => {
