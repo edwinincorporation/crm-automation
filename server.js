@@ -457,6 +457,7 @@ app.get('/api/aicall/list', ANY, (req, res) => res.json(AIC.list()));
 app.post('/api/aicall/scan', MGR, async (req, res) => { try { const a = await AIC.scan(); const p = await AIC.poll(); res.json({ ...a, finished: p }); } catch (e) { res.status(502).json({ error: e.message }); } });
 app.post('/api/aicall/poll', MGR, async (req, res) => { try { res.json({ finished: await AIC.poll() }); } catch (e) { res.status(502).json({ error: e.message }); } });
 app.post('/api/aicall/approve', MGR, async (req, res) => { try { res.json(await AIC.approve(+req.body.id, req.user.username)); } catch (e) { res.status(400).json({ error: e.message }); } });
+app.post('/api/aicall/phone', MGR, (req, res) => { try { res.json(AIC.setPhone(+req.body.id, req.body.phone, req.user.username)); } catch (e) { res.status(400).json({ error: e.message }); } });
 app.post('/api/aicall/skip', MGR, (req, res) => { AIC.skip(+req.body.id, req.user.username); res.json({ ok: true }); });
 app.post('/api/aicall/cfg', MGR, (req, res) => res.json(AIC.setCfg(req.body || {})));
 
