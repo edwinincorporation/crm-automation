@@ -315,7 +315,7 @@ async whatsapp(m){const can=me.role!=='executive';
   if(!todo.length||!can)return;
   const keys=()=>[...m.querySelectorAll('.wk:checked')].map(c=>c.value);
   $('#wmk').onclick=async()=>{const k=keys();if(!k.length)return alert('Pehle koi tick karo');if(!confirm(k.length+' task Zoho me banenge'+(D.dry?' (TEST MODE: asal me nahi)':'')+'. Theek hai?'))return;
-   try{const r=await api('whatsapp/create',{body:{keys:k}});const bad=r.results.filter(x=>!x.ok);$('#wout').innerHTML=r.results.map(x=>`<p>${x.ok?'<span class="tag ok2">'+(x.dry?'Test':'Ban gaya')+'</span>':'<span class="tag no">Nahi bana</span>'} ${esc(x.subject||x.error||'')}</p>`).join('');if(!r.dry&&!bad.length)go();}catch(e){say(e.message,true)}};
+   try{const r=await api('whatsapp/create',{body:{keys:k}});const bad=r.results.filter(x=>!x.ok);$('#wout').innerHTML=r.results.map(x=>`<p>${x.ok?'<span class="tag ok2">'+(x.dry?'Test':'Ban gaya')+'</span>':'<span class="tag no">Nahi bana</span>'} ${esc(x.subject||x.error||'')}${x.call?' <span class="tag ok2">+ AI Call task</span>':''}</p>`).join('');if(!r.dry&&!bad.length)go();}catch(e){say(e.message,true)}};
   $('#wsk').onclick=async()=>{const k=keys();if(!k.length)return;if(!confirm(k.length+' entry list se hata dein (task nahi banega)?'))return;await api('whatsapp/skip',{body:{keys:k}});go();};};
  const go=async()=>{$('#wres').textContent='Check ho raha hai…';try{B=await api('whatsapp/brands').catch(()=>({}));D=await api('whatsapp/check?days='+$('#wd').value);draw();}catch(e){$('#wres').innerHTML=`<div class="msg err">${esc(e.message)}</div>`;}};
  $('#wgo').onclick=go;go();},
