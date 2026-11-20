@@ -353,6 +353,7 @@ app.post('/api/gem/cfg', MGR, (req, res) => res.json(GEM.setCfg(req.body)));
 app.post('/api/gem/choose', MGR, async (req, res) => { try { res.json(await GEM.choose(String(req.body.id), req.body.rate, req.body.qty, req.user.username)); } catch (e) { res.status(400).json({ error: e.message }); } });
 app.get('/api/mode', ANY, (req, res) => res.json({ dry: require('./lib/mode').isDry() }));
 app.post('/api/mode', ADM, (req, res) => { const on = !!req.body.dry; require('./lib/mode').setDry(on); log(req.user.username, 'mode_change', on ? 'TEST MODE on' : 'LIVE MODE on'); res.json({ dry: on }); });
+app.get('/api/mailmeter/schema', MGR, async (req, res) => { try { res.json(await MM.schemaPeek()); } catch (e) { res.status(502).json({ error: e.message }); } });
 app.get('/api/mailmeter/call', ANY, (req, res) => res.json(MM.callGet()));
 app.post('/api/mailmeter/call', MGR, (req, res) => res.json(MM.callSet(!!req.body.on, req.body.words)));
 app.post('/api/mailmeter/prefix', MGR, (req, res) => { MM.setPrefix(req.body.prefix); res.json({ ok: true }); });
