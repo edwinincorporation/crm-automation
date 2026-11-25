@@ -337,6 +337,11 @@ app.post('/api/pending/:id/reject', MGR, (req, res) => { db.prepare("UPDATE pend
 app.get('/api/mailmeter/check', ANY, async (req, res) => { try { res.json(await MM.check(req.query.days)); } catch (e) { res.status(502).json({ error: e.message }); } });
 app.post('/api/mailmeter/create', MGR, async (req, res) => { try { res.json(await MM.create((req.body.keys || []).slice(0, 100), req.user.username)); } catch (e) { res.status(502).json({ error: e.message }); } });
 app.post('/api/mailmeter/create-calls', MGR, async (req, res) => { try { res.json(await MM.createCalls((req.body.keys || []).slice(0, 100), req.user.username)); } catch (e) { res.status(502).json({ error: e.message }); } });
+app.post('/api/mailmeter/ext-replies', express.json({ limit: '1mb' }), (req, res) => { // called by the Apps Script in each care@ mailbox; no login, secret key instead
+  if (!require('./lib/mailext').keyOk(req.headers['x-ingest-key'])) return res.status(401).json({ error: 'Not allowed' });
+  try { res.json(require('./lib/mailext').ingest(req.body)); } catch (e) { res.status(500).json({ error: 'could not save' }); }
+});
+app.get('/api/mailmeter/ext-script', MGR, (req, res) => res.type('text/plain').send(require('./lib/mailext').script('https://' + (req.headers['x-forwarded-host'] || req.headers.host))));
 app.post('/api/mailmeter/skip', MGR, (req, res) => res.json(MM.skip((req.body.keys || []).slice(0, 300), req.user.username)));
 app.get('/api/mailmeter/auto', ANY, (req, res) => res.json(MM.autoGet()));
 app.post('/api/mailmeter/auto', MGR, (req, res) => { try { res.json(MM.autoSet(String(req.body.mode), req.body.hour)); } catch (e) { res.status(400).json({ error: e.message }); } });
