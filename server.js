@@ -342,6 +342,11 @@ app.post('/api/mailmeter/ext-replies', express.json({ limit: '1mb' }), (req, res
   try { res.json(require('./lib/mailext').ingest(req.body)); } catch (e) { res.status(500).json({ error: 'could not save' }); }
 });
 app.get('/api/mailmeter/ext-script', MGR, (req, res) => res.type('text/plain').send(require('./lib/mailext').script('https://' + (req.headers['x-forwarded-host'] || req.headers.host))));
+// ---------- Gmail connect for the care@ mailboxes (read-only) ----------
+const GM = require('./lib/gmail');
+app.get('/api/gmail/status', MGR, (req, res) => res.json(GM.status()));
+app.post('/api/gmail/disconnect', MGR, async (req, res) => { try { await GM.disconnect(req.body.mailbox, req.user.username); res.json({ ok: true }); } catch (e) { res.status(500).json({ error: String(e.message || e) }); } });
+app.post('/api/gmail/poll', MGR, async (req, res) => { try { res.json(await GM.poll(true)); } catch (e) { res.status(500).json({ error: String(e.message || e) }); } });
 app.post('/api/mailmeter/skip', MGR, (req, res) => res.json(MM.skip((req.body.keys || []).slice(0, 300), req.user.username)));
 app.get('/api/mailmeter/auto', ANY, (req, res) => res.json(MM.autoGet()));
 app.post('/api/mailmeter/auto', MGR, (req, res) => { try { res.json(MM.autoSet(String(req.body.mode), req.body.hour)); } catch (e) { res.status(400).json({ error: e.message }); } });
@@ -488,4 +493,4 @@ app.post('/api/closure/preview', ANY, (req, res) => res.json({ html: CL.preview(
 app.post('/api/closure/testsend', MGR, async (req, res) => { try { res.json(await CL.testSend(+req.body.id, req.body.to, req.user.username)); } catch (e) { res.status(400).json({ error: e.message }); } });
 app.post('/api/closure/cfg', MGR, (req, res) => res.json(CL.setCfg(req.body)));
 
-app.listen(port, () => { console.log(`CRM Management portal on :${port} ${zoho.DEMO ? '(DEMO mode)' : ''}`); if (process.env.SCHEDULER !== '0') E.startScheduler(); setInterval(() => MM.autoRun().catch(() => {}), 60000); setInterval(() => WA.autoRun().catch(() => {}), 60000); setInterval(() => AIC.poll().catch(() => {}), 120000); setInterval(() => CL.autoRun().catch((e) => log('closure', 'closure_error', e.message)), 600000); setInterval(() => AS.autoAssign().catch((e) => log('auto-assign', 'assign_error', e.message)), 60000); });
+app.listen(port, () => { console.log(`CRM Management portal on :${port} ${zoho.DEMO ? '(DEMO mode)' : ''}`); if (process.env.SCHEDULER !== '0') E.startScheduler(); setInterval(() => MM.autoRun().catch(() => {}), 60000); setInterval(() => WA.autoRun().catch(() => {}), 60000); setInterval(() => AIC.poll().catch(() => {}), 120000); setInterval(() => GM.poll().catch(() => {}), 60000); setInterval(() => CL.autoRun().catch((e) => log('closure', 'closure_error', e.message)), 600000); setInterval(() => AS.autoAssign().catch((e) => log('auto-assign', 'assign_error', e.message)), 60000); });
