@@ -345,12 +345,6 @@ app.get('/api/mailmeter/ext-script', MGR, (req, res) => res.type('text/plain').s
 // ---------- Gmail connect for the care@ mailboxes (read-only) ----------
 const GM = require('./lib/gmail');
 app.get('/api/gmail/status', MGR, (req, res) => res.json(GM.status()));
-app.get('/api/gmail/connect', MGR, (req, res) => { try { res.redirect(GM.connectUrl(String(req.query.mailbox || ''))); } catch (e) { res.redirect('/?gmailerr=' + encodeURIComponent(e.message)); } });
-app.get('/api/gmail/callback', MGR, async (req, res) => {
-  if (req.query.error || !req.query.code) return res.redirect('/?gmailerr=' + encodeURIComponent('Google ne access nahi diya (' + (req.query.error || 'code nahi aaya') + ')'));
-  try { const m = await GM.callback(String(req.query.code), String(req.query.state || ''), req.user.username); GM.poll(true).catch(() => {}); res.redirect('/?gmail=' + encodeURIComponent(m)); }
-  catch (e) { res.redirect('/?gmailerr=' + encodeURIComponent(String(e.message || e).slice(0, 250))); }
-});
 app.post('/api/gmail/disconnect', MGR, async (req, res) => { try { await GM.disconnect(req.body.mailbox, req.user.username); res.json({ ok: true }); } catch (e) { res.status(500).json({ error: String(e.message || e) }); } });
 app.post('/api/gmail/poll', MGR, async (req, res) => { try { res.json(await GM.poll(true)); } catch (e) { res.status(500).json({ error: String(e.message || e) }); } });
 app.post('/api/mailmeter/skip', MGR, (req, res) => res.json(MM.skip((req.body.keys || []).slice(0, 300), req.user.username)));
