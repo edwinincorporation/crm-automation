@@ -351,7 +351,7 @@ async whatsapp(m){const can=me.role!=='executive';
   $('#mausv').onclick=async()=>{const md=$('#maum').value;if((md==='create'||md==='new')&&!confirm(md==='new'?'Ab se jo NAYE replies aayenge unke letter + call task apne aap banenge. Purane nahi chhue jayenge. Chalu karein?':'Ye roz apne aap Zoho me task banayega (jinka pehle se nahi hai). Pakka chalu karein?'))return;try{auShow(await api('mailmeter/auto',{body:{mode:md,hour:$('#mauh').value}}));}catch(e){say(e.message,true)}};}
  if($('#mextb'))$('#mextb').onclick=async()=>{try{const t=await (await fetch('/api/mailmeter/ext-script')).text();const a=$('#mextt');a.value=t;a.style.display='block';a.select();}catch(e){say(e.message,true)}};
  let D=null;
- const draw=()=>{const todo=D.rows.filter(r=>!r.handled&&r.contact&&!r.problem),other=D.rows.filter(r=>r.handled||!r.contact||r.problem);
+ const draw=()=>{const calls=D.rows.filter(r=>r.callNeeded&&r.contact&&!r.problem);const todo=D.rows.filter(r=>!r.handled&&r.contact&&!r.problem),other=D.rows.filter(r=>r.handled||!r.contact||r.problem);
   $('#mpx')&&($('#mpx').value=D.prefix);
   $('#mres').innerHTML=(D.dry?'<div class="msg">TEST MODE: tasks sach me nahi banenge, sirf dikhega.</div>':'')+
   `<h4>Replied: Call task (Priyanka Mahobiya ko) baaki (${calls.length})</h4>${calls.length?`<table>${calls.map(r=>`<tr><td><b>${esc(r.contact.name||'')}</b><br><small>${esc(r.email)}</small></td><td>${esc(r.campaign)}<br><small>${esc(r.source||'')}</small></td><td><small>${esc(new Date(r.at).toLocaleString('en-IN'))}</small></td></tr>`).join('')}</table>${can?'<p><button class="b g big" id="mcall">Sabke Call tasks banao (Priyanka Mahobiya ko)</button></p>':''}`:'<p>Sab replies ke call task ban chuke hain.</p>'}<div id="mcout"></div>
