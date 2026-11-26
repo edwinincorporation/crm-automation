@@ -369,6 +369,7 @@ app.get('/api/letters/contacts', ANY, async (req, res) => { try { res.json(await
 app.get('/api/letters/queue', ANY, async (req, res) => { try { res.json(await LT.queue()); } catch (e) { res.status(502).json({ error: e.message }); } });
 app.get('/api/letters/templates', ANY, async (req, res) => { try { res.json((await LT.templates()).map((t) => ({ key: t.key, name: t.name }))); } catch (e) { res.status(502).json({ error: e.message }); } });
 app.get('/api/letters/senders', ANY, async (req, res) => { try { res.json(await LT.senders()); } catch (e) { res.status(502).json({ error: e.message }); } });
+app.post('/api/letters/senders', auth(['admin']), (req, res) => { try { const l = LT.saveSenders(req.body.text); log(req.user.username, 'letter_senders', `${l.length} sender(s)`); res.json({ ok: true, n: l.length }); } catch (e) { res.status(400).json({ error: e.message }); } });
 app.post('/api/letters/preview', MGR, async (req, res) => { try { res.json(await LT.preview((req.body.items || req.body.ids || []).slice(0, 50), String(req.body.sender || ''))); } catch (e) { res.status(502).json({ error: e.message }); } });
 app.post('/api/letters/send', MGR, async (req, res) => {
   const ids = (req.body.items || req.body.ids || []).slice(0, 50); if (!ids.length) return res.status(400).json({ error: 'Kam se kam ek contact chuno' });
