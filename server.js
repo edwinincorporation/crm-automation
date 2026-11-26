@@ -368,10 +368,11 @@ app.post('/api/mailmeter/prefix', MGR, (req, res) => { MM.setPrefix(req.body.pre
 app.get('/api/letters/contacts', ANY, async (req, res) => { try { res.json(await LT.search(req.query.q)); } catch (e) { res.status(502).json({ error: e.message }); } });
 app.get('/api/letters/queue', ANY, async (req, res) => { try { res.json(await LT.queue()); } catch (e) { res.status(502).json({ error: e.message }); } });
 app.get('/api/letters/templates', ANY, async (req, res) => { try { res.json((await LT.templates()).map((t) => ({ key: t.key, name: t.name }))); } catch (e) { res.status(502).json({ error: e.message }); } });
-app.post('/api/letters/preview', MGR, async (req, res) => { try { res.json(await LT.preview((req.body.items || req.body.ids || []).slice(0, 50))); } catch (e) { res.status(502).json({ error: e.message }); } });
+app.get('/api/letters/senders', ANY, async (req, res) => { try { res.json(await LT.senders()); } catch (e) { res.status(502).json({ error: e.message }); } });
+app.post('/api/letters/preview', MGR, async (req, res) => { try { res.json(await LT.preview((req.body.items || req.body.ids || []).slice(0, 50), String(req.body.sender || ''))); } catch (e) { res.status(502).json({ error: e.message }); } });
 app.post('/api/letters/send', MGR, async (req, res) => {
   const ids = (req.body.items || req.body.ids || []).slice(0, 50); if (!ids.length) return res.status(400).json({ error: 'Kam se kam ek contact chuno' });
-  try { res.json(await LT.send(ids, req.user.username)); } catch (e) { res.status(502).json({ error: e.message }); }
+  try { res.json(await LT.send(ids, req.user.username, String(req.body.sender || ''))); } catch (e) { res.status(502).json({ error: e.message }); }
 });
 app.get('/api/letters/map', ANY, (req, res) => res.json(LT.getMap()));
 app.post('/api/letters/map', MGR, (req, res) => { const m = LT.saveMap(req.body.map); log(req.user.username, 'letter_map', `${m.length} mapping(s)`); res.json(m); });
