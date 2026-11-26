@@ -89,7 +89,7 @@ async function render(){
  $('#lf').onsubmit=e=>{e.preventDefault();go();};$('#sp').onchange=e=>{$('#p').type=e.target.checked?'text':'password';};return;}
  const tabs=TABS.filter(t=>t[0]!=='users'||me.role==='admin');
 const label=Object.fromEntries(TABS),vis=new Set(tabs.map(t=>t[0]));
- const GROUPS=[['Roz ka kaam',['dashboard','outbox','pending']],['Mail aur replies',['mailmeter','gmail','letters','closer','closure','whatsapp','emails']],['Tasks',['assign','aicall','gem']],['Automation',['rules','macros','automations','learning','workflows','svcurls']],['Admin',['activity','users']]];
+ const GROUPS=[['Roz ka kaam',['dashboard','outbox','pending']],['Mail aur replies',['mailmeter','gmail','letters','closer','closure','whatsapp','emails']],['Tasks',['assign','aicall','gem']],['Automation',['rules','macros','automations','learn','workflows','svcurls']],['Admin',['activity','users']]];
  const used=new Set(GROUPS.flatMap(g=>g[1])),rest=[...vis].filter(i=>!used.has(i));if(rest.length)GROUPS.push(['Aur',rest]);
  const side=GROUPS.map(([g,ids])=>{const it=ids.filter(i=>vis.has(i));return it.length?`<div class="grp">${g}</div>`+it.map(i=>`<button class="${tab===i?'on':''}" data-t="${i}">${esc(label[i])}</button>`).join(''):'';}).join('');
  document.title=(label[tab]||'')+' - CRM Management Portal';
