@@ -2,32 +2,73 @@
 <html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>CRM Management Portal</title>
 <style>
-*{box-sizing:border-box}body{margin:0;font:14px/1.45 system-ui,Segoe UI,Roboto,sans-serif;background:#f4f6f9;color:#1f2937}
-header{background:#12355b;color:#fff;padding:10px 18px;display:flex;align-items:center;gap:16px}
-header h1{font-size:17px;margin:0;flex:1}header small{opacity:.8}
-nav{display:flex;gap:2px;background:#fff;border-bottom:1px solid #dde3ea;padding:0 12px;flex-wrap:wrap}
-nav button{border:0;background:none;padding:11px 14px;cursor:pointer;font-size:14px;color:#475569;border-bottom:3px solid transparent}
-nav button.on{color:#12355b;border-color:#12355b;font-weight:600}
-main{padding:18px;max-width:1200px;margin:auto}
-.card{background:#fff;border:1px solid #dde3ea;border-radius:8px;padding:14px;margin-bottom:14px}
-.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:12px}
-.stat b{font-size:26px;display:block}
-table{width:100%;border-collapse:collapse}th,td{text-align:left;padding:7px 8px;border-bottom:1px solid #eef1f5;vertical-align:top}
-th{font-size:12px;text-transform:uppercase;color:#64748b}
-input,select,textarea{font:inherit;padding:7px 9px;border:1px solid #cbd5e1;border-radius:6px;width:100%}
+:root{--ink:#0e2a47;--ink2:#18395f;--paper:#f2f5f9;--card:#fff;--line:#dce3ec;--text:#1b2733;--mute:#5d6b7c;--accent:#0b7285;--go:#147a46;--warn:#a85d00;--bad:#b3261e;--r:10px}
+*{box-sizing:border-box}
+body{margin:0;font:14px/1.5 "Segoe UI Variable Text","Segoe UI",system-ui,-apple-system,Roboto,sans-serif;background:var(--paper);color:var(--text);font-variant-numeric:tabular-nums}
+h1,h2,h3,h4{line-height:1.25;color:var(--ink)}h3{font-size:16px;margin:0 0 8px}h4{font-size:14px;margin:16px 0 6px}
+a{color:var(--accent)}
+.shell{display:grid;grid-template-columns:248px minmax(0,1fr);min-height:100vh}
+.side{background:var(--ink);color:#cfdcec;position:sticky;top:0;height:100vh;overflow-y:auto;padding:18px 12px 24px}
+.brand{padding:2px 10px 16px;border-bottom:1px solid rgba(255,255,255,.12);margin-bottom:6px}
+.brand b{display:block;color:#fff;font-size:16px;letter-spacing:.2px}.brand small{color:#8fa8c4}
+.grp{font-size:12px;color:#8fa8c4;margin:16px 10px 4px;font-weight:600}
+.side button{display:block;width:100%;text-align:left;border:0;background:none;color:#cfdcec;padding:8px 10px 8px 12px;border-radius:8px;cursor:pointer;font:inherit;border-left:3px solid transparent;margin:1px 0}
+.side button:hover{background:rgba(255,255,255,.07)}
+.side button.on{background:rgba(255,255,255,.13);color:#fff;font-weight:600;border-left-color:#4fc3d4}
+.col{min-width:0}
+.top{display:flex;align-items:center;gap:12px;padding:10px 24px;background:#fff;border-bottom:1px solid var(--line);position:sticky;top:0;z-index:5;min-height:56px}
+.top h1{font-size:18px;margin:0;flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.who{color:var(--mute);font-size:13px}
+.menu{display:none;border:1px solid var(--line);background:#fff;border-radius:8px;font-size:18px;line-height:1;padding:6px 10px;cursor:pointer}
+.scrim{display:none}
+main{padding:22px 24px 48px;max-width:1220px}
+main.busy::before{content:"";position:fixed;left:0;top:0;height:3px;width:100%;z-index:50;background:linear-gradient(90deg,transparent,#4fc3d4,transparent);background-size:40% 100%;background-repeat:no-repeat;animation:bar 1.1s linear infinite}
+@keyframes bar{from{background-position:-40% 0}to{background-position:140% 0}}
+.card{background:var(--card);border:1px solid var(--line);border-radius:var(--r);padding:16px;margin-bottom:14px;overflow-x:auto}
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:12px}
+.stat b{font-size:28px;display:block;color:var(--ink);font-weight:650}
+table{width:100%;border-collapse:collapse}th,td{text-align:left;padding:8px 10px;border-bottom:1px solid #edf1f6;vertical-align:top}
+th{font-size:12.5px;color:var(--mute);font-weight:600;background:#f8fafc;white-space:nowrap}
+tbody tr:hover td,table tr:hover td{background:#f9fbfd}
+input,select,textarea{font:inherit;padding:8px 10px;border:1px solid #c5d0dd;border-radius:8px;width:100%;background:#fff;color:var(--text)}
+input[type=checkbox],input[type=radio]{width:auto}
 textarea{min-height:90px}
-button.b{background:#12355b;color:#fff;border:0;border-radius:6px;padding:7px 13px;cursor:pointer}
-button.b.g{background:#15803d}button.b.r{background:#b91c1c}button.b.l{background:#e2e8f0;color:#1f2937}
+input:focus-visible,select:focus-visible,textarea:focus-visible,button:focus-visible,summary:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+button.b{background:var(--ink);color:#fff;border:1px solid transparent;border-radius:8px;padding:7px 14px;cursor:pointer;font:inherit;font-weight:600}
+button.b:hover{filter:brightness(1.15)}button.b:disabled{opacity:.45;cursor:not-allowed;filter:none}
+button.b.g{background:var(--go)}button.b.r{background:var(--bad)}button.b.l{background:#fff;color:var(--ink);border-color:#c5d0dd}
+button.b.l:hover{background:#f1f5f9;filter:none}
 .row{display:flex;gap:10px;flex-wrap:wrap;align-items:end;margin-bottom:10px}.row>*{flex:1;min-width:140px}.row>button{flex:0}
-.tag{display:inline-block;padding:1px 8px;border-radius:10px;font-size:12px;background:#e2e8f0;margin:1px}
-.tag.w{background:#fef3c7}.tag.ok{background:#dcfce7}.tag.bad{background:#fee2e2}
-#login{max-width:340px;margin:12vh auto}pre{white-space:pre-wrap;margin:0;font:inherit}
-.msg{padding:9px 12px;border-radius:6px;margin-bottom:10px;background:#e0f2fe}.msg.err{background:#fee2e2}
-button.big{font-size:15px;padding:10px 18px}
-.todo{display:flex;gap:14px;align-items:center;flex-wrap:wrap}.todo b.n{font-size:34px;min-width:56px}.todo .t{flex:1;min-width:200px}.todo small{color:#64748b;display:block}
-.tag.ok2{background:#dcfce7;color:#166534}.tag.warn{background:#fef3c7;color:#92400e}.tag.no{background:#fee2e2;color:#991b1b}
-.banner{padding:8px 12px;border-radius:6px;margin-bottom:12px;font-weight:600}.banner.test{background:#fef3c7;color:#92400e}.banner.live{background:#dcfce7;color:#166534}
-label{font-size:12px;color:#64748b;display:block;margin-bottom:2px}
+.tag{display:inline-block;padding:1px 9px;border-radius:999px;font-size:12px;background:#e8edf3;color:#334155;margin:1px}
+.tag.w{background:#fdf0cf;color:var(--warn)}.tag.ok{background:#d9f2e3;color:var(--go)}.tag.bad{background:#fbe0de;color:var(--bad)}
+.tag.ok2{background:#d9f2e3;color:#0f5f37}.tag.warn{background:#fdf0cf;color:#85490a}.tag.no{background:#fbe0de;color:#8f1d17}
+#login{max-width:360px;margin:14vh auto;padding:24px}pre{white-space:pre-wrap;margin:0;font:inherit}
+.msg{padding:10px 14px;border-radius:8px;margin-bottom:12px;background:#e3f2fb;border:1px solid #bfe0f3}.msg.err{background:#fdecea;border-color:#f5c2be;color:#7a1810}
+button.big{font-size:14.5px;padding:9px 18px}
+.todo{display:flex;gap:16px;align-items:center;flex-wrap:wrap;border-left:4px solid var(--line);overflow:visible}
+.todo.has{border-left-color:var(--warn)}
+.todo b.n{font-size:34px;min-width:64px;text-align:right;color:#8a98a8;font-weight:650;line-height:1}
+.todo.has b.n{color:var(--ink)}
+.todo:not(.has){padding:10px 16px;background:#fafbfd}.todo:not(.has) .t b{color:var(--mute);font-weight:500}.todo:not(.has) b.n{font-size:22px}
+.todo .t{flex:1;min-width:220px}.todo .t b{color:var(--ink)}.todo small{color:var(--mute);display:block;margin-top:2px}
+.banner{padding:9px 14px;border-radius:8px;margin-bottom:14px;font-weight:600;border:1px solid transparent}
+.banner.test{background:#fdf0cf;color:#7a4300;border-color:#f0d58a}.banner.live{background:#d9f2e3;color:#0f5f37;border-color:#a8dcbd}
+label{font-size:12.5px;color:var(--mute);display:block;margin-bottom:3px}
+details>summary{cursor:pointer;padding:2px 0}
+small{color:var(--mute)}
+#toast{position:fixed;right:18px;bottom:18px;z-index:60;max-width:min(420px,calc(100vw - 36px));display:grid;gap:8px}
+#toast div{padding:11px 14px;border-radius:10px;background:var(--ink);color:#fff;box-shadow:0 6px 24px rgba(10,30,60,.25);cursor:pointer}
+#toast div.err{background:var(--bad)}
+@media (max-width:860px){
+ .shell{display:block}
+ .side{position:fixed;z-index:40;left:0;top:0;bottom:0;width:272px;transform:translateX(-102%);transition:transform .18s}
+ body.menu .side{transform:none}
+ body.menu .scrim{display:block;position:fixed;inset:0;background:rgba(10,20,35,.45);z-index:30}
+ .menu{display:inline-block}.top{padding:8px 14px}.who{display:none}
+ main{padding:14px 12px 40px}
+ .todo b.n{text-align:left;min-width:48px}
+}
+@media (prefers-reduced-motion:reduce){main.busy::before{animation:none}.side{transition:none}}
 </style></head><body>
 <div id="app"></div>
 <script>
@@ -47,16 +88,24 @@ async function render(){
  const go=async()=>{try{me=await api('login',{body:{username:$('#u').value,password:$('#p').value}});tab='dashboard';render();}catch(e){$('#le').textContent=e.message}};
  $('#lf').onsubmit=e=>{e.preventDefault();go();};$('#sp').onchange=e=>{$('#p').type=e.target.checked?'text':'password';};return;}
  const tabs=TABS.filter(t=>t[0]!=='users'||me.role==='admin');
- app.innerHTML=`<header><h1>CRM Management Portal ${me.demo?'<small>(DEMO data)</small>':''}</h1><small>${esc(me.username)} · ${esc(me.role)}</small><button class="b l" id="lo">Logout</button></header>
- <nav>${tabs.map(t=>`<button class="${tab===t[0]?'on':''}" data-t="${t[0]}">${t[1]}</button>`).join('')}</nav><main id="m"></main>`;
+const label=Object.fromEntries(TABS),vis=new Set(tabs.map(t=>t[0]));
+ const GROUPS=[['Roz ka kaam',['dashboard','outbox','pending']],['Mail aur replies',['mailmeter','gmail','letters','closer','closure','whatsapp','emails']],['Tasks',['assign','aicall','gem']],['Automation',['rules','macros','automations','learning','workflows','svcurls']],['Admin',['activity','users']]];
+ const used=new Set(GROUPS.flatMap(g=>g[1])),rest=[...vis].filter(i=>!used.has(i));if(rest.length)GROUPS.push(['Aur',rest]);
+ const side=GROUPS.map(([g,ids])=>{const it=ids.filter(i=>vis.has(i));return it.length?`<div class="grp">${g}</div>`+it.map(i=>`<button class="${tab===i?'on':''}" data-t="${i}">${esc(label[i])}</button>`).join(''):'';}).join('');
+ document.title=(label[tab]||'')+' - CRM Management Portal';
+ app.innerHTML=`<div class="shell"><aside class="side" id="side"><div class="brand"><b>CRM Management</b><small>${me.demo?'Demo data':'Edwin Incorporation'}</small></div>${side}</aside><div class="col"><div class="top"><button class="menu" id="mn" aria-label="Menu kholo">&#9776;</button><h1>${esc(label[tab]||'')}</h1><span class="who">${esc(me.username)} &middot; ${esc(me.role)}</span><button class="b l" id="lo">Logout</button></div><main id="m"></main></div></div><div class="scrim" id="scrim"></div><div id="toast" aria-live="polite"></div>`;
  $('#lo').onclick=async()=>{await api('logout',{method:'POST'});me=null;render();};
- document.querySelectorAll('nav button').forEach(b=>b.onclick=()=>{tab=b.dataset.t;flash=null;render();});
- const m=$('#m');if(flash){m.innerHTML=`<div class="msg ${flash.err?'err':''}">${esc(flash.m)}</div>`;flash=null;}
- try{await VIEWS[tab](m);}catch(e){m.insertAdjacentHTML('beforeend',`<div class="msg err">${esc(e.message)}</div>`);}
+ $('#mn').onclick=()=>document.body.classList.toggle('menu');$('#scrim').onclick=()=>document.body.classList.remove('menu');
+ document.body.classList.remove('menu');
+ document.querySelectorAll('.side button').forEach(b=>b.onclick=()=>{tab=b.dataset.t;flash=null;render();});
+ const m=$('#m');
+ if(flash){const t=document.createElement('div');t.className=flash.err?'err':'';t.textContent=flash.m;t.onclick=()=>t.remove();$('#toast').appendChild(t);if(!flash.err)setTimeout(()=>t.remove(),5000);flash=null;}
+ m.classList.add('busy');
+ try{await VIEWS[tab](m);}catch(e){m.insertAdjacentHTML('beforeend',`<div class="msg err">${esc(e.message)}</div>`);}finally{m.classList.remove('busy');}
 }
 const VIEWS={
 async dashboard(m){const d=await api('dashboard');setTimeout(()=>{const b=document.getElementById('modesw');if(b)b.onclick=async()=>{const toLive=d.dry;if(toLive&&!confirm('LIVE karne par PURE portal me asli kaam hoga:\n- Letters sach me jayenge, tasks close honge\n- Mail Meter / WhatsApp / Assignment se Zoho me tasks banenge\n- GeM ka chuna rate Zoho me save hoga\n\nPakka LIVE karna hai?'))return;await api('mode',{body:{dry:!toLive}});render();};},0);const go=t=>{tab=t;render();};
- const row=(n,title,sub,btn,t)=>`<div class="card todo"><b class="n">${n}</b><div class="t"><b>${title}</b><small>${sub}</small></div>${n>0&&btn?`<button class="b g big" data-go="${t}">${btn}</button>`:`<span class="tag ok2">Kuch baaki nahi</span>`}</div>`;
+ const row=(n,title,sub,btn,t)=>`<div class="card todo${n>0&&btn?' has':''}"><b class="n">${n}</b><div class="t"><b>${title}</b><small>${sub}</small></div>${n>0&&btn?`<button class="b g big" data-go="${t}">${btn}</button>`:`<span class="tag ok2">Kuch baaki nahi</span>`}</div>`;
  m.insertAdjacentHTML('beforeend',`<div class="banner ${d.dry?'test':'live'}">${d.dry?'TEST MODE — abhi kuch bhi sach me nahi bhejta / close nahi karta. Sirf dikhata hai.':'LIVE — letters sach me jayenge aur tasks close honge.'}${me.role==='admin'?` <button class="b l" id="modesw" style="margin-left:12px">${d.dry?'LIVE karo':'TEST MODE me jao'}</button>`:''}</div>
  <h3 style="margin:0 0 10px">Aaj ka kaam</h3>
  ${row(d.letters,'Letters bhejne baaki','In contacts par letter ka open task hai. Ek click me letter jayega aur task close hoga.','Letters bhejo','letters')}
