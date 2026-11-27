@@ -419,6 +419,37 @@ app.post('/api/assign/rules', MGR, (req, res) => {
   db.prepare('INSERT INTO assign_rules(name,match_field,match_value,employee_ids) VALUES(?,?,?,?)').run(r.name, r.match_field === 'Dept_Name' ? 'Dept_Name' : 'Subject', r.match_value, JSON.stringify(r.employee_ids.map(Number)));
   log(req.user.username, 'assign_rule_save', r.name); res.json({ ok: true });
 });
+app.put('/api/assign/rules/:id', MGR, (req, res) => {
+  const r = req.body, id = +req.params.id;
+  if (!db.prepare('SELECT id FROM assign_rules WHERE id=?').get(id)) return res.status(404).json({ error: 'Rule nahi mila' });
+  if (!r.name || !r.match_value || !Array.isArray(r.employee_ids) || !r.employee_ids.length) return res.status(400).json({ error: 'Name, match text and at least one employee are required' });
+  db.prepare('UPDATE assign_rules SET name=?, match_field=?, match_value=?, employee_ids=?, active=? WHERE id=?').run(String(r.name).trim(), r.match_field === 'Dept_Name' ? 'Dept_Name' : 'Subject', String(r.match_value).trim(), JSON.stringify([...new Set(r.employee_ids.map(Number))]), r.active === 0 || r.active === false ? 0 : 1, id);
+  log(req.user.username, 'assign_rule_edit', `${id} ${r.name}`); res.json({ ok: true });
+});
+app.post('/api/assign/rules/:id/move', MGR, (req, res) => { // order = priority (first match wins): swap the contents of two neighbouring rules
+  const id = +req.params.id, up = req.body.dir === 'up';
+  const all = db.prepare('SELECT * FROM assign_rules ORDER BY id').all(), i = all.findIndex((x) => x.id === id), j = up ? i - 1 : i + 1;
+  if (i < 0 || j < 0 || j >= all.length) return res.json({ ok: true, moved: false });
+  const a = all[i], b = all[j], upd = db.prepare('UPDATE assign_rules SET name=?, match_field=?, match_value=?, employee_ids=?, active=? WHERE id=?');
+  db.transaction(() => { upd.run(b.name, b.match_field, b.match_value, b.employee_ids, b.active, a.id); upd.run(a.name, a.match_field, a.match_value, a.employee_ids, a.active, b.id); })();
+  log(req.user.username, 'assign_rule_move', `${a.name} ${up ? 'up' : 'down'}`); res.json({ ok: true, moved: true });
+});
+app.post('/api/assign/replace-person', MGR, (req, res) => { // swap or remove one person across ALL rules; a rule that would be left empty is not touched
+  const from = +req.body.from, to = req.body.to ? +req.body.to : 0;
+  if (!from) return res.status(400).json({ error: 'Kisko hatana hai?' });
+  const changed = [], blocked = [], upd = db.prepare('UPDATE assign_rules SET employee_ids=? WHERE id=?');
+  db.transaction(() => {
+    for (const r of db.prepare('SELECT * FROM assign_rules ORDER BY id').all()) {
+      const ids = JSON.parse(r.employee_ids || '[]').map(Number);
+      if (!ids.includes(from)) continue;
+      const next = [...new Set(ids.map((x) => (x === from ? to : x)).filter(Boolean))];
+      if (!next.length) { blocked.push(r.name); continue; }
+      upd.run(JSON.stringify(next), r.id); changed.push(r.name);
+    }
+  })();
+  log(req.user.username, 'assign_replace_person', `${from} -> ${to || 'removed'}: ${changed.length} changed, ${blocked.length} blocked`);
+  res.json({ ok: true, changed, blocked });
+});
 app.delete('/api/assign/rules/:id', MGR, (req, res) => { db.prepare('DELETE FROM assign_rules WHERE id=?').run(req.params.id); res.json({ ok: true }); });
 app.get('/api/assign/plan', MGR, async (req, res) => { try { res.json(await AS.plan()); } catch (e) { res.status(502).json({ error: e.message }); } });
 app.post('/api/assign/apply', MGR, async (req, res) => {
